@@ -1,7 +1,7 @@
 import { createServerResponseAdapter } from "@/lib/server-response-adapter";
 import { mcpHandler } from "../mcp";
 
-export const maxDuration = 800;
+export const maxDuration = 300;
 
 export async function POST(req: Request) {
   return createServerResponseAdapter(req.signal, (res) => {
