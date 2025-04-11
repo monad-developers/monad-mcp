@@ -20,7 +20,7 @@
     DecodeRecursiveResult,
     DecodeTupleParamResult,
     ParsedTransaction,
-  } from "./types";
+  } from "../types";
 export const calldataDecoderRequestSchema = z.object({
   calldata: z.string(),
   address: z

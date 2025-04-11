@@ -21,7 +21,7 @@ import {
   ExplorerType,
   SourceCode,
   EVMParameter,
-} from "./types";
+} from "../types";
 import { formatEther, formatUnits } from "viem";
 
 export const getPath = (subdomain: string) => {
