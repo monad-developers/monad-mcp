@@ -167,35 +167,41 @@ export const mcpHandler = initializeMcpApiHandler(
         }
       }
     );
-    
     server.tool(
       "get-block",
-      "Get information about a specific block on Monad testnet",
+      "Get information about a specific block on Monad testnet (latest or by block number)",
       {
-        blockNumber: z.union([
-          z.string().describe("Block number or 'latest' for most recent block"),
-          z.number().describe("Block number")
-        ]),
+        blockNumber: z.string().describe("Block number or 'latest' for most recent block"),
       },
+      
       async ({ blockNumber }) => {
         try {
-          const blockTag = blockNumber === 'latest' ? 'latest' : 
-            typeof blockNumber === 'string' ? BigInt(blockNumber) : BigInt(blockNumber);
-          const block = await publicClient.getBlock({ 
-            blockNumber: blockTag === 'latest' ? undefined : blockTag 
+          const blockTag =
+            typeof blockNumber === "string"
+              ? (blockNumber === "latest" ? "latest" : BigInt(blockNumber))
+              : BigInt(blockNumber);
+          const block = await publicClient.getBlock({
+            blockNumber: blockTag === "latest" ? undefined : blockTag,
           });
+    
           return {
             content: [
               {
                 type: "text",
-                text: stringify({
-                  hash: block.hash,
-                  number: block.number,
-                  timestamp: new Date(Number(block.timestamp) * 1000).toISOString(),
-                  gasUsed: block.gasUsed.toString(),
-                  transactions: block.transactions.length,
-                  miner: block.miner,
-                }, null, 2),
+                text: stringify(
+                  {
+                    hash: block.hash,
+                    number: block.number,
+                    timestamp: new Date(
+                      Number(block.timestamp) * 1000
+                    ).toISOString(),
+                    gasUsed: block.gasUsed.toString(),
+                    transactions: block.transactions.length,
+                    miner: block.miner,
+                  },
+                  null,
+                  2
+                ),
               },
             ],
           };
@@ -205,7 +211,7 @@ export const mcpHandler = initializeMcpApiHandler(
             content: [
               {
                 type: "text",
-                text: `Failed to retrieve block information. Error: ${
+                text: `Failed to retrieve block information. Please provide either 'latest' or a valid block number. Error: ${
                   error instanceof Error ? error.message : String(error)
                 }`,
               },
@@ -214,7 +220,6 @@ export const mcpHandler = initializeMcpApiHandler(
         }
       }
     );
-    
     server.tool(
       "get-tx-receipt",
       "Get detailed transaction receipt from Monad testnet",
