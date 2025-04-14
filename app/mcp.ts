@@ -457,7 +457,6 @@ server.tool(
   "Convert between different data formats (hex, string, number, keccak256)",
   {
     input: z.string().describe("Input value to convert"),
-    from: z.enum(["string", "hex", "number"]).describe("Input format (string, hex, number)"),
     operations: z.array(z.enum([
       "toHex",
       "toString",
@@ -467,23 +466,28 @@ server.tool(
       "toBigInt"
     ])).describe("Array of conversion operations to perform in sequence")
   },
-  async ({ input, from, operations }) => {
+  async ({ input, operations }) => {
     try {
+      server.server.sendLoggingMessage({
+        level: "info",
+        data: { input, operations },
+      });
       let currentValue: any = input;
 
       // First convert from input format to initial value
-      switch (from) {
-        case "string":
-          currentValue = input;
-          break;
-        case "hex":
-          if (!isHex(input)) throw new Error("Invalid hex input");
+      // Check input type
+      if (typeof input === 'string') {
+        if (isHex(input)) {
           currentValue = input as Hex;
-          break;
-        case "number":
+        } else if (!isNaN(Number(input))) {
           currentValue = Number(input);
-          if (isNaN(currentValue)) throw new Error("Invalid number input");
-          break;
+        } else {
+          currentValue = input;
+        }
+      } else if (typeof input === 'number') {
+        currentValue = input;
+      } else {
+        throw new Error("Invalid input type. Expected string or number.");
       }
 
       // Process each operation in sequence
@@ -550,7 +554,6 @@ server.tool(
             text: JSON.stringify({
               input: {
                 value: input,
-                type: from
               },
               conversions: results
             }, null, 2)
