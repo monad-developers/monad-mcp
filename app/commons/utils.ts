@@ -621,3 +621,30 @@ export const isBigInt = (value: string): boolean => {
     return false;
   }
 };
+
+export function serializeValue(value: any): any {
+  // Handle null and undefined
+  if (value == null) {
+    return value;
+  }
+
+  // Handle BigInt
+  if (typeof value === 'bigint') {
+    return value.toString();
+  }
+
+  // Handle arrays
+  if (Array.isArray(value)) {
+    return value.map(serializeValue);
+  }
+
+  // Handle objects (but not Date, RegExp, etc.)
+  if (typeof value === 'object' && value.constructor === Object) {
+    return Object.fromEntries(
+      Object.entries(value).map(([k, v]) => [k, serializeValue(v)])
+    );
+  }
+
+  // Handle other types (strings, numbers, booleans)
+  return value;
+}
