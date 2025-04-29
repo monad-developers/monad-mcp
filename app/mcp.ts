@@ -3,6 +3,7 @@ import { initializeMcpApiHandler } from "../lib/mcp-api-handler";
 import { ResourceTemplate } from "@modelcontextprotocol/sdk/server/mcp.js";
 import {
   createPublicClient,
+  createWalletClient,
   formatUnits,
   getContract,
   http,
@@ -27,6 +28,7 @@ import { ERC20_ABI, monadTestnet } from "./commons/constants";
 import { startHexWith0x } from "./commons/utils";
 import * as fs from 'fs';
 import * as path from 'path';
+import { privateKeyToAccount } from "viem/accounts";
 export const mcpHandler = initializeMcpApiHandler(
   (server) => {
     const publicClient = createPublicClient({
@@ -865,6 +867,110 @@ export const mcpHandler = initializeMcpApiHandler(
         };
       }
     );
+
+    // server.tool(
+    //   "writeContract",
+    //   "Write data to a smart contract. Format: { address: '0x...', abi: [...], functionName: 'string', args: [], value: '0' }",
+    //   {
+    //     address: z.string().describe("Contract address (0x...)"),
+    //     abi: z
+    //       .array(z.object({
+    //         name: z.string(),
+    //         type: z.string(),
+    //         stateMutability: z.string().optional(),
+    //         inputs: z.array(z.object({
+    //           name: z.string(),
+    //           type: z.string()
+    //         })),
+    //         outputs: z.array(z.object({
+    //           name: z.string(),
+    //           type: z.string()
+    //         })).optional()
+    //       }))
+    //       .describe(
+    //         "Contract ABI array (e.g., [{ name: 'transfer', type: 'function', inputs: [{ name: 'to', type: 'address' }, { name: 'amount', type: 'uint256' }] }])"
+    //       ),
+    //     functionName: z
+    //       .string()
+    //       .describe("Function name to call (e.g., 'transfer')"),
+    //     args: z
+    //       .array(z.any())
+    //       .optional()
+    //       .describe("Function arguments array (e.g., ['0x...', '1000000000000000000'])"),
+    //     value: z
+    //       .string()
+    //       .optional()
+    //       .describe("Amount of native token to send with the transaction (in wei)"),
+    //     privateKey: z
+    //       .string()
+    //       .optional()
+    //       .describe("Private key for the account to use for the transaction")
+    //     },
+
+    //   async ({ address, abi, functionName, args, value,privateKey },context) => {
+    //     try {
+    //       logToFile('Starting writeContract', );
+    //       const privateKey = context.signal.;
+
+    //       const account = privateKeyToAccount(privateKey as `0x${string}`);
+    //       // Ensure the account is properly set up
+    //       logToFile('Account initialized', {
+    //         address: account.address,
+    //         privateKey: privateKey
+    //       });
+    //       if (!account) {
+    //         return {
+    //           content: [
+    //             {
+    //               type: "text",
+    //               text: "Account not initialized. Check PRIVATE_KEY environment variable.",
+    //             },
+    //           ],
+    //         };
+    //       }
+
+    //       // Log the account address for debugging
+    //       console.log(`Using account: ${account.address}`);
+    //       const client = createWalletClient({
+    //         account,
+    //         chain: monadTestnet,
+    //         transport: http()
+    //       });
+
+    //       const { request } = await publicClient.simulateContract({
+    //         address: address as `0x${string}`,
+    //         abi,
+    //         functionName,
+    //         args,
+    //         value: value ? BigInt(value) : undefined,
+    //         account
+    //       });
+
+    //       const hash = await client.writeContract(request);
+
+    //       return {
+    //         content: [
+    //           {
+    //             type: "text",
+    //             text: `Transaction sent. Hash: ${hash}`,
+    //           },
+    //         ],
+    //       };
+    //     } catch (error) {
+    //       console.error("Error writing to contract:", error);
+    //       return {
+    //         content: [
+    //           {
+    //             type: "text",
+    //             text: `Failed to write to contract. Error: ${
+    //               error instanceof Error ? error.message : String(error)
+    //             }`,
+    //           },
+    //         ],
+    //       };
+    //     }
+    //   }
+    // );
     function serializeValue(value: any): any {
   // Handle null and undefined
   if (value == null) {
@@ -903,11 +1009,7 @@ export const mcpHandler = initializeMcpApiHandler(
       args?: any[];
     }) {
       try {
-        logToFile('Starting contract read', {
-          address,
-          functionName,
-          args
-        });
+
 
         // Create contract instance with received ABI
         const contract = getContract({
@@ -915,37 +1017,22 @@ export const mcpHandler = initializeMcpApiHandler(
           abi: (abi), // Parse the received ABI
           client: publicClient,
         });
-        logToFile('Contract instance created', {
-          address: contract.address,
-          abi: contract.abi
-        });
+    
 
         // Dynamically call the function
-        logToFile('Calling contract function', {
-          functionName,
-          args
-        });
+       
         const result = await contract.read[functionName](args);
         const safeJsonString = JSON.stringify(serializeValue(result));
 
 // Use it with logging
 
-        logToFile('Contract function call successful', {
-          functionName,
-          result
-        });
-
+    
         return {
           success: true,
           data: safeJsonString,
         };
       } catch (error) {
-        logToFile('Error reading contract', {
-          error: error instanceof Error ? error.message : String(error),
-          address,
-          functionName,
-          args
-        });
+   
         console.error(`Error reading contract: ${error}`);
         return {
           success: false,
