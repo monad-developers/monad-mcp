@@ -26,8 +26,8 @@ import { fetchFunctionInterface } from "./commons/decoder";
 
 import { ERC20_ABI, monadTestnet } from "./commons/constants";
 import { startHexWith0x } from "./commons/utils";
-import * as fs from 'fs';
-import * as path from 'path';
+import * as fs from "fs";
+import * as path from "path";
 import { privateKeyToAccount } from "viem/accounts";
 export const mcpHandler = initializeMcpApiHandler(
   (server) => {
@@ -42,21 +42,26 @@ export const mcpHandler = initializeMcpApiHandler(
     // }))
     const logToFile = (message: string, data?: any) => {
       const timestamp = new Date().toISOString();
-      const logMessage = `${timestamp} - ${message}${data ? '\nData: ' + JSON.stringify(data, (key, value) => 
-        typeof value === 'bigint' ? value.toString() : value
-      , 2) : ''}\n`;
-      
+      const logMessage = `${timestamp} - ${message}${
+        data
+          ? "\nData: " +
+            JSON.stringify(
+              data,
+              (key, value) =>
+                typeof value === "bigint" ? value.toString() : value,
+              2
+            )
+          : ""
+      }\n`;
+
       // Create logs directory if it doesn't exist
-      const logDir = path.join(process.cwd(), 'logs');
+      const logDir = path.join(process.cwd(), "logs");
       if (!fs.existsSync(logDir)) {
         fs.mkdirSync(logDir);
       }
-      
+
       // Write to log file
-      fs.appendFileSync(
-        path.join(logDir, 'mcp-server.log'),
-        logMessage
-      );
+      fs.appendFileSync(path.join(logDir, "mcp-server.log"), logMessage);
     };
 
     server.tool(
@@ -336,10 +341,10 @@ export const mcpHandler = initializeMcpApiHandler(
           }
 
           const data = await response.json();
-          if (data.result && 'creationByteCode' in data.result) {
+          if (data.result && "creationByteCode" in data.result) {
             delete data.result.creationByteCode;
           }
-          if (data.result && 'sourceCode' in data.result) {
+          if (data.result && "sourceCode" in data.result) {
             delete data.result.sourceCode;
           }
           return {
@@ -419,7 +424,7 @@ export const mcpHandler = initializeMcpApiHandler(
     // });
     server.tool(
       "monad-docs",
-      "Fetch Monad developer documentation",
+      "Fetch Monad developer documentation. The LLM should use the link and open the page.",
       {},
       async () => {
         try {
@@ -444,7 +449,18 @@ export const mcpHandler = initializeMcpApiHandler(
             }
           );
           return {
-            content: [{ type: "text", text: processedText }],
+            content: [
+              {
+                type: "text",
+                text: "Here's a summary of Monad documentation. Please open the a link to view the full documentation:DONT USE THE INFO DIRECTLY OPEN A LINK FIRST",
+              },
+              {
+                type: "text",
+                text:
+                  "# Monad Documentation Index\n\nSelect a document to view by using the read-monad-docs tool with the URL provided below each link:\n\n" +
+                  processedText,
+              },
+            ],
           };
         } catch (error) {
           console.error("Error fetching Monad docs:", error);
@@ -453,6 +469,130 @@ export const mcpHandler = initializeMcpApiHandler(
               {
                 type: "text",
                 text: `Error fetching Monad docs: ${
+                  error instanceof Error ? error.message : String(error)
+                }`,
+              },
+            ],
+          };
+        }
+      }
+    );
+    server.tool(
+      "read-monad-docs",
+      "Fetch and read the contents of a specific Monad documentation page. This should be used after the monad-docs tool to fetch the actual data.",
+      {
+        url: z.string().url().describe("The full URL of the Monad documentation page to fetch"),
+      },
+      async ({ url }) => {
+        try {
+          // Helper function to clean HTML content
+          function cleanDocContent(html: string): string {
+            // Remove script tags and their content
+            html = html.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
+            
+            // Remove style tags and their content
+            html = html.replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '');
+            
+            // Remove navigation, header, footer, and other non-content elements
+            const removeElements = [
+              'nav', 'header', 'footer', 'aside', 'meta', 'link',
+              'button', 'form', '.navigation', '.sidebar', '.menu',
+              '.header', '.footer', '.nav', '.toolbar'
+            ].join('|');
+            
+            const removeRegex = new RegExp(`<(${removeElements})[^>]*>[\\s\\S]*?<\\/\\1>`, 'gi');
+            html = html.replace(removeRegex, '');
+    
+            // Extract main content (usually in article, main, or div.content)
+            const mainContent = html.match(/<(article|main|div class="content")[^>]*>([\s\S]*?)<\/\1>/i);
+            if (mainContent) {
+              html = mainContent[2];
+            }
+    
+            // Convert HTML to markdown-style formatting
+            html = html
+              // Headers
+              .replace(/<h1[^>]*>(.*?)<\/h1>/gi, '\n# $1\n')
+              .replace(/<h2[^>]*>(.*?)<\/h2>/gi, '\n## $1\n')
+              .replace(/<h3[^>]*>(.*?)<\/h3>/gi, '\n### $1\n')
+              .replace(/<h4[^>]*>(.*?)<\/h4>/gi, '\n#### $1\n')
+              
+              // Code blocks
+              .replace(/<pre[^>]*><code[^>]*>([\s\S]*?)<\/code><\/pre>/gi, '\n```\n$1\n```\n')
+              .replace(/<code[^>]*>(.*?)<\/code>/gi, '`$1`')
+              
+              // Lists
+              .replace(/<ul[^>]*>([\s\S]*?)<\/ul>/gi, '\n$1\n')
+              .replace(/<ol[^>]*>([\s\S]*?)<\/ol>/gi, '\n$1\n')
+              .replace(/<li[^>]*>(.*?)<\/li>/gi, '• $1\n')
+              
+              // Tables
+              .replace(/<table[^>]*>([\s\S]*?)<\/table>/gi, (match) => {
+                return match
+                  .replace(/<tr[^>]*>([\s\S]*?)<\/tr>/gi, '$1\n')
+                  .replace(/<th[^>]*>(.*?)<\/th>/gi, '| $1 ')
+                  .replace(/<td[^>]*>(.*?)<\/td>/gi, '| $1 ')
+                  .replace(/\n/g, ' |\n');
+              })
+              
+              // Links
+              .replace(/<a[^>]*href="([^"]*)"[^>]*>(.*?)<\/a>/gi, '[$2]($1)')
+              
+              // Paragraphs and line breaks
+              .replace(/<p[^>]*>(.*?)<\/p>/gi, '\n$1\n')
+              .replace(/<br\s*\/?>/gi, '\n')
+              
+              // Remove remaining HTML tags
+              .replace(/<[^>]+>/g, '');
+    
+            // Clean up the text
+            return html
+              // Fix HTML entities
+              .replace(/&nbsp;/g, ' ')
+              .replace(/&quot;/g, '"')
+              .replace(/&amp;/g, '&')
+              .replace(/&lt;/g, '<')
+              .replace(/&gt;/g, '>')
+              // Fix spacing
+              .replace(/\n\s*\n\s*\n/g, '\n\n')
+              .replace(/^\s+|\s+$/g, '')
+              // Fix code block formatting
+              .replace(/```\n\s*```/g, '')
+              .replace(/```\n\n/g, '```\n')
+              // Add spacing around headers
+              .replace(/(\n#{1,6} .*)\n(?=\S)/g, '$1\n\n');
+          }
+    
+          const response = await fetch(url);
+          if (!response.ok) {
+            return {
+              content: [
+                {
+                  type: "text",
+                  text: `Error fetching Monad documentation: ${response.status}`,
+                },
+              ],
+            };
+          }
+          
+          const rawText = await response.text();
+          const cleanedContent = cleanDocContent(rawText);
+    
+          return {
+            content: [
+              {
+                type: "text",
+                text: `# ${url.split('/').pop()?.replace(/-/g, ' ').toUpperCase() || 'Monad Documentation'}\n\n${cleanedContent}`,
+              },
+            ],
+          };
+        } catch (error) {
+          console.error("Error fetching Monad documentation:", error);
+          return {
+            content: [
+              {
+                type: "text",
+                text: `Error fetching Monad documentation: ${
                   error instanceof Error ? error.message : String(error)
                 }`,
               },
@@ -826,19 +966,25 @@ export const mcpHandler = initializeMcpApiHandler(
       {
         address: z.string().describe("Contract address (0x...)"),
         abi: z
-          .array(z.object({
-            name: z.string(),
-            type: z.string(),
-            stateMutability: z.string().optional(),
-            inputs: z.array(z.object({
+          .array(
+            z.object({
               name: z.string(),
-              type: z.string()
-            })),
-            outputs: z.array(z.object({
-              name: z.string(),
-              type: z.string()
-            }))
-          }))
+              type: z.string(),
+              stateMutability: z.string().optional(),
+              inputs: z.array(
+                z.object({
+                  name: z.string(),
+                  type: z.string(),
+                })
+              ),
+              outputs: z.array(
+                z.object({
+                  name: z.string(),
+                  type: z.string(),
+                })
+              ),
+            })
+          )
           .describe(
             "Contract ABI array (e.g., [{ name: 'balanceOf', type: 'function', stateMutability: 'view', inputs: [{ name: 'owner', type: 'address' }], outputs: [{ name: 'balance', type: 'uint256' }] }])"
           ),
@@ -868,135 +1014,151 @@ export const mcpHandler = initializeMcpApiHandler(
       }
     );
 
-    // server.tool(
-    //   "writeContract",
-    //   "Write data to a smart contract. Format: { address: '0x...', abi: [...], functionName: 'string', args: [], value: '0' }",
-    //   {
-    //     address: z.string().describe("Contract address (0x...)"),
-    //     abi: z
-    //       .array(z.object({
-    //         name: z.string(),
-    //         type: z.string(),
-    //         stateMutability: z.string().optional(),
-    //         inputs: z.array(z.object({
-    //           name: z.string(),
-    //           type: z.string()
-    //         })),
-    //         outputs: z.array(z.object({
-    //           name: z.string(),
-    //           type: z.string()
-    //         })).optional()
-    //       }))
-    //       .describe(
-    //         "Contract ABI array (e.g., [{ name: 'transfer', type: 'function', inputs: [{ name: 'to', type: 'address' }, { name: 'amount', type: 'uint256' }] }])"
-    //       ),
-    //     functionName: z
-    //       .string()
-    //       .describe("Function name to call (e.g., 'transfer')"),
-    //     args: z
-    //       .array(z.any())
-    //       .optional()
-    //       .describe("Function arguments array (e.g., ['0x...', '1000000000000000000'])"),
-    //     value: z
-    //       .string()
-    //       .optional()
-    //       .describe("Amount of native token to send with the transaction (in wei)"),
-    //     privateKey: z
-    //       .string()
-    //       .optional()
-    //       .describe("Private key for the account to use for the transaction")
-    //     },
+    server.tool(
+      "writeContract",
+      "Write data to a smart contract. Format: { address: '0x...', abi: [...], functionName: 'string', args: [], value: '0' }",
+      {
+        address: z.string().describe("Contract address (0x...)"),
+        abi: z
+          .array(
+            z.object({
+              name: z.string(),
+              type: z.string(),
+              stateMutability: z.string().optional(),
+              inputs: z.array(
+                z.object({
+                  name: z.string(),
+                  type: z.string(),
+                })
+              ),
+              outputs: z
+                .array(
+                  z.object({
+                    name: z.string(),
+                    type: z.string(),
+                  })
+                )
+                .optional(),
+            })
+          )
+          .describe(
+            "Contract ABI array (e.g., [{ name: 'transfer', type: 'function', inputs: [{ name: 'to', type: 'address' }, { name: 'amount', type: 'uint256' }] }])"
+          ),
+        functionName: z
+          .string()
+          .describe("Function name to call (e.g., 'transfer')"),
+        args: z
+          .array(z.any())
+          .optional()
+          .describe(
+            "Function arguments array (e.g., ['0x...', '1000000000000000000'])"
+          ),
+        value: z
+          .string()
+          .optional()
+          .describe(
+            "Amount of native token to send with the transaction (in wei)"
+          ),
+        privateKey: z
+          .string()
+          .optional()
+          .describe("Private key for the account to use for the transaction"),
+      },
 
-    //   async ({ address, abi, functionName, args, value,privateKey },context) => {
-    //     try {
-    //       logToFile('Starting writeContract', );
-    //       const privateKey = context.signal.;
+      async (
+        { address, abi, functionName, args, value, privateKey },
+        context
+      ) => {
+        try {
+          logToFile("Starting writeContract", {
+            context,
+          });
 
-    //       const account = privateKeyToAccount(privateKey as `0x${string}`);
-    //       // Ensure the account is properly set up
-    //       logToFile('Account initialized', {
-    //         address: account.address,
-    //         privateKey: privateKey
-    //       });
-    //       if (!account) {
-    //         return {
-    //           content: [
-    //             {
-    //               type: "text",
-    //               text: "Account not initialized. Check PRIVATE_KEY environment variable.",
-    //             },
-    //           ],
-    //         };
-    //       }
+          const account = privateKeyToAccount(privateKey as `0x${string}`);
+          // Ensure the account is properly set up
+          logToFile("Account initialized", {
+            address: account.address,
+            privateKey: privateKey,
+          });
+          if (!account) {
+            return {
+              content: [
+                {
+                  type: "text",
+                  text: "Account not initialized. Check PRIVATE_KEY environment variable.",
+                },
+              ],
+            };
+          }
 
-    //       // Log the account address for debugging
-    //       console.log(`Using account: ${account.address}`);
-    //       const client = createWalletClient({
-    //         account,
-    //         chain: monadTestnet,
-    //         transport: http()
-    //       });
+          // Log the account address for debugging
+          console.log(`Using account: ${account.address}`);
+          const client = createWalletClient({
+            account,
+            chain: monadTestnet,
+            transport: http(),
+          });
 
-    //       const { request } = await publicClient.simulateContract({
-    //         address: address as `0x${string}`,
-    //         abi,
-    //         functionName,
-    //         args,
-    //         value: value ? BigInt(value) : undefined,
-    //         account
-    //       });
+          const { request } = await publicClient.simulateContract({
+            address: address as `0x${string}`,
+            abi,
+            functionName,
+            args,
+            value: value ? BigInt(value) : undefined,
+            account,
+          });
 
-    //       const hash = await client.writeContract(request);
+          const hash = await client.writeContract(request);
 
-    //       return {
-    //         content: [
-    //           {
-    //             type: "text",
-    //             text: `Transaction sent. Hash: ${hash}`,
-    //           },
-    //         ],
-    //       };
-    //     } catch (error) {
-    //       console.error("Error writing to contract:", error);
-    //       return {
-    //         content: [
-    //           {
-    //             type: "text",
-    //             text: `Failed to write to contract. Error: ${
-    //               error instanceof Error ? error.message : String(error)
-    //             }`,
-    //           },
-    //         ],
-    //       };
-    //     }
-    //   }
-    // );
-    function serializeValue(value: any): any {
-  // Handle null and undefined
-  if (value == null) {
-    return value;
-  }
-
-  // Handle BigInt
-  if (typeof value === 'bigint') {
-    return value.toString();
-  }
-
-  // Handle arrays
-  if (Array.isArray(value)) {
-    return value.map(serializeValue);
-  }
-
-  // Handle objects (but not Date, RegExp, etc.)
-  if (typeof value === 'object' && value.constructor === Object) {
-    return Object.fromEntries(
-      Object.entries(value).map(([k, v]) => [k, serializeValue(v)])
+          return {
+            content: [
+              {
+                type: "text",
+                text: `Transaction sent. Hash: ${hash}`,
+              },
+            ],
+          };
+        } catch (error) {
+          console.error("Error writing to contract:", error);
+          return {
+            content: [
+              {
+                type: "text",
+                text: `Failed to write to contract. Error: ${
+                  error instanceof Error ? error.message : String(error)
+                }`,
+              },
+            ],
+          };
+        }
+      }
     );
-  }
+    function serializeValue(value: any): any {
+      // Handle null and undefined
+      if (value == null) {
+        return value;
+      }
 
-  // Handle other types (strings, numbers, booleans)
-  return value;
-}
+      // Handle BigInt
+      if (typeof value === "bigint") {
+        return value.toString();
+      }
+
+      // Handle arrays
+      if (Array.isArray(value)) {
+        return value.map(serializeValue);
+      }
+
+      // Handle objects (but not Date, RegExp, etc.)
+      if (typeof value === "object" && value.constructor === Object) {
+        return Object.fromEntries(
+          Object.entries(value).map(([k, v]) => [k, serializeValue(v)])
+        );
+      }
+
+      // Handle other types (strings, numbers, booleans)
+      return value;
+    }
     async function readContract({
       address,
       abi,
@@ -1009,30 +1171,25 @@ export const mcpHandler = initializeMcpApiHandler(
       args?: any[];
     }) {
       try {
-
-
         // Create contract instance with received ABI
         const contract = getContract({
           address,
-          abi: (abi), // Parse the received ABI
+          abi: abi, // Parse the received ABI
           client: publicClient,
         });
-    
 
         // Dynamically call the function
-       
+
         const result = await contract.read[functionName](args);
         const safeJsonString = JSON.stringify(serializeValue(result));
 
-// Use it with logging
+        // Use it with logging
 
-    
         return {
           success: true,
           data: safeJsonString,
         };
       } catch (error) {
-   
         console.error(`Error reading contract: ${error}`);
         return {
           success: false,
@@ -1040,6 +1197,7 @@ export const mcpHandler = initializeMcpApiHandler(
         };
       }
     }
+
     // server.resource(
     //   "monad-docs",
     //   new ResourceTemplate("monad://docs/references/llms-full", { list: undefined }),

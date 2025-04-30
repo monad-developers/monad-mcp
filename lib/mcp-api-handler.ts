@@ -19,6 +19,7 @@ export function initializeMcpApiHandler(
   initializeServer: (server: McpServer) => void,
   serverOptions: ServerOptions = {}
 ) {
+  
   const redisUrl = process.env.REDIS_URL || process.env.KV_URL;
   if (!redisUrl) {
     throw new Error("REDIS_URL environment variable is not set");
@@ -39,12 +40,12 @@ export function initializeMcpApiHandler(
 
   let servers: McpServer[] = [];
 
-  return async function mcpApiHandler(req: Request, res: ServerResponse) {
+  return async function 
+  (req: Request, res: ServerResponse) {
     await redisPromise;
     const url = new URL(req.url || "", "https://example.com");
     if (url.pathname === "/sse") {
       console.log("Got new SSE connection");
-
       const transport = new SSEServerTransport("/message", res);
       const sessionId = transport.sessionId;
       const server = new McpServer(
@@ -67,6 +68,10 @@ export function initializeMcpApiHandler(
         type: "log" | "error";
         messages: string[];
       }[] = [];
+      logInContext("log",JSON.stringify(transport,null,2))
+
+      logInContext("log", JSON.stringify(req,null,2));
+
       // This ensures that we logs in the context of the right invocation since the subscriber
       // is not itself invoked in request context.
       function logInContext(severity: "log" | "error", ...messages: string[]) {
