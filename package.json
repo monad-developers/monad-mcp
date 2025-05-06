@@ -5,7 +5,9 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "dev:debug": "NODE_OPTIONS='--trace-warnings' DEBUG=* next dev"
+
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.8.0",
