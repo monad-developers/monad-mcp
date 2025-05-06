@@ -481,88 +481,119 @@ export const mcpHandler = initializeMcpApiHandler(
       "read-monad-docs",
       "Fetch and read the contents of a specific Monad documentation page. This should be used after the monad-docs tool to fetch the actual data.",
       {
-        url: z.string().url().describe("The full URL of the Monad documentation page to fetch"),
+        url: z
+          .string()
+          .url()
+          .describe("The full URL of the Monad documentation page to fetch"),
       },
       async ({ url }) => {
         try {
           // Helper function to clean HTML content
           function cleanDocContent(html: string): string {
             // Remove script tags and their content
-            html = html.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
-            
+            html = html.replace(
+              /<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi,
+              ""
+            );
+
             // Remove style tags and their content
-            html = html.replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '');
-            
+            html = html.replace(
+              /<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi,
+              ""
+            );
+
             // Remove navigation, header, footer, and other non-content elements
             const removeElements = [
-              'nav', 'header', 'footer', 'aside', 'meta', 'link',
-              'button', 'form', '.navigation', '.sidebar', '.menu',
-              '.header', '.footer', '.nav', '.toolbar'
-            ].join('|');
-            
-            const removeRegex = new RegExp(`<(${removeElements})[^>]*>[\\s\\S]*?<\\/\\1>`, 'gi');
-            html = html.replace(removeRegex, '');
-    
+              "nav",
+              "header",
+              "footer",
+              "aside",
+              "meta",
+              "link",
+              "button",
+              "form",
+              ".navigation",
+              ".sidebar",
+              ".menu",
+              ".header",
+              ".footer",
+              ".nav",
+              ".toolbar",
+            ].join("|");
+
+            const removeRegex = new RegExp(
+              `<(${removeElements})[^>]*>[\\s\\S]*?<\\/\\1>`,
+              "gi"
+            );
+            html = html.replace(removeRegex, "");
+
             // Extract main content (usually in article, main, or div.content)
-            const mainContent = html.match(/<(article|main|div class="content")[^>]*>([\s\S]*?)<\/\1>/i);
+            const mainContent = html.match(
+              /<(article|main|div class="content")[^>]*>([\s\S]*?)<\/\1>/i
+            );
             if (mainContent) {
               html = mainContent[2];
             }
-    
+
             // Convert HTML to markdown-style formatting
             html = html
               // Headers
-              .replace(/<h1[^>]*>(.*?)<\/h1>/gi, '\n# $1\n')
-              .replace(/<h2[^>]*>(.*?)<\/h2>/gi, '\n## $1\n')
-              .replace(/<h3[^>]*>(.*?)<\/h3>/gi, '\n### $1\n')
-              .replace(/<h4[^>]*>(.*?)<\/h4>/gi, '\n#### $1\n')
-              
+              .replace(/<h1[^>]*>(.*?)<\/h1>/gi, "\n# $1\n")
+              .replace(/<h2[^>]*>(.*?)<\/h2>/gi, "\n## $1\n")
+              .replace(/<h3[^>]*>(.*?)<\/h3>/gi, "\n### $1\n")
+              .replace(/<h4[^>]*>(.*?)<\/h4>/gi, "\n#### $1\n")
+
               // Code blocks
-              .replace(/<pre[^>]*><code[^>]*>([\s\S]*?)<\/code><\/pre>/gi, '\n```\n$1\n```\n')
-              .replace(/<code[^>]*>(.*?)<\/code>/gi, '`$1`')
-              
+              .replace(
+                /<pre[^>]*><code[^>]*>([\s\S]*?)<\/code><\/pre>/gi,
+                "\n```\n$1\n```\n"
+              )
+              .replace(/<code[^>]*>(.*?)<\/code>/gi, "`$1`")
+
               // Lists
-              .replace(/<ul[^>]*>([\s\S]*?)<\/ul>/gi, '\n$1\n')
-              .replace(/<ol[^>]*>([\s\S]*?)<\/ol>/gi, '\n$1\n')
-              .replace(/<li[^>]*>(.*?)<\/li>/gi, '• $1\n')
-              
+              .replace(/<ul[^>]*>([\s\S]*?)<\/ul>/gi, "\n$1\n")
+              .replace(/<ol[^>]*>([\s\S]*?)<\/ol>/gi, "\n$1\n")
+              .replace(/<li[^>]*>(.*?)<\/li>/gi, "• $1\n")
+
               // Tables
               .replace(/<table[^>]*>([\s\S]*?)<\/table>/gi, (match) => {
                 return match
-                  .replace(/<tr[^>]*>([\s\S]*?)<\/tr>/gi, '$1\n')
-                  .replace(/<th[^>]*>(.*?)<\/th>/gi, '| $1 ')
-                  .replace(/<td[^>]*>(.*?)<\/td>/gi, '| $1 ')
-                  .replace(/\n/g, ' |\n');
+                  .replace(/<tr[^>]*>([\s\S]*?)<\/tr>/gi, "$1\n")
+                  .replace(/<th[^>]*>(.*?)<\/th>/gi, "| $1 ")
+                  .replace(/<td[^>]*>(.*?)<\/td>/gi, "| $1 ")
+                  .replace(/\n/g, " |\n");
               })
-              
+
               // Links
-              .replace(/<a[^>]*href="([^"]*)"[^>]*>(.*?)<\/a>/gi, '[$2]($1)')
-              
+              .replace(/<a[^>]*href="([^"]*)"[^>]*>(.*?)<\/a>/gi, "[$2]($1)")
+
               // Paragraphs and line breaks
-              .replace(/<p[^>]*>(.*?)<\/p>/gi, '\n$1\n')
-              .replace(/<br\s*\/?>/gi, '\n')
-              
+              .replace(/<p[^>]*>(.*?)<\/p>/gi, "\n$1\n")
+              .replace(/<br\s*\/?>/gi, "\n")
+
               // Remove remaining HTML tags
-              .replace(/<[^>]+>/g, '');
-    
+              .replace(/<[^>]+>/g, "");
+
             // Clean up the text
-            return html
-              // Fix HTML entities
-              .replace(/&nbsp;/g, ' ')
-              .replace(/&quot;/g, '"')
-              .replace(/&amp;/g, '&')
-              .replace(/&lt;/g, '<')
-              .replace(/&gt;/g, '>')
-              // Fix spacing
-              .replace(/\n\s*\n\s*\n/g, '\n\n')
-              .replace(/^\s+|\s+$/g, '')
-              // Fix code block formatting
-              .replace(/```\n\s*```/g, '')
-              .replace(/```\n\n/g, '```\n')
-              // Add spacing around headers
-              .replace(/(\n#{1,6} .*)\n(?=\S)/g, '$1\n\n');
+            return (
+              html
+                // Fix HTML entities
+                .replace(/&nbsp;/g, " ")
+                .replace(/&quot;/g, '"')
+                .replace(/&amp;/g, "&")
+                .replace(/&lt;/g, "<")
+                .replace(/&gt;/g, ">")
+                // Fix spacing
+                .replace(/\n\s*\n\s*\n/g, "\n\n")
+                .replace(/^\s+|\s+$/g, "")
+                // Fix code block formatting
+                .replace(/```\n\s*```/g, "")
+                .replace(/```\n\n/g, "```\n")
+                // Add spacing around headers
+                .replace(/(\n#{1,6} .*)\n(?=\S)/g, "$1\n\n")
+            );
           }
-    
+
           const response = await fetch(url);
           if (!response.ok) {
             return {
@@ -574,15 +605,18 @@ export const mcpHandler = initializeMcpApiHandler(
               ],
             };
           }
-          
+
           const rawText = await response.text();
           const cleanedContent = cleanDocContent(rawText);
-    
+
           return {
             content: [
               {
                 type: "text",
-                text: `# ${url.split('/').pop()?.replace(/-/g, ' ').toUpperCase() || 'Monad Documentation'}\n\n${cleanedContent}`,
+                text: `# ${
+                  url.split("/").pop()?.replace(/-/g, " ").toUpperCase() ||
+                  "Monad Documentation"
+                }\n\n${cleanedContent}`,
               },
             ],
           };
@@ -793,7 +827,6 @@ export const mcpHandler = initializeMcpApiHandler(
         }
       }
     );
-    // ... existing code ...
     server.tool(
       "decode-calldata",
       "Decode Ethereum transaction calldata and get function information",
@@ -1015,332 +1048,470 @@ export const mcpHandler = initializeMcpApiHandler(
       }
     );
 
-    server.tool(
-      "writeContract",
-      "Write data to a smart contract. Format: { address: '0x...', abi: [...], functionName: 'string', args: [], value: '0' }",
-      {
-        address: z.string().describe("Contract address (0x...)"),
-        abi: z
-          .array(
-            z.object({
-              name: z.string(),
-              type: z.string(),
-              stateMutability: z.string().optional(),
-              inputs: z.array(
-                z.object({
-                  name: z.string(),
-                  type: z.string(),
-                })
-              ),
-              outputs: z
-                .array(
-                  z.object({
-                    name: z.string(),
-                    type: z.string(),
-                  })
-                )
-                .optional(),
-            })
-          )
-          .describe(
-            "Contract ABI array (e.g., [{ name: 'transfer', type: 'function', inputs: [{ name: 'to', type: 'address' }, { name: 'amount', type: 'uint256' }] }])"
-          ),
-        functionName: z
-          .string()
-          .describe("Function name to call (e.g., 'transfer')"),
-        args: z
-          .array(z.any())
-          .optional()
-          .describe(
-            "Function arguments array (e.g., ['0x...', '1000000000000000000'])"
-          ),
-        value: z
-          .string()
-          .optional()
-          .describe(
-            "Amount of native token to send with the transaction (in wei)"
-          ),
-        privateKey: z
-          .string()
-          .optional()
-          .describe("Private key for the account to use for the transaction"),
-      },
 
-      async (
-        { address, abi, functionName, args, value, privateKey },
-        context
-      ) => {
-        try {
-          logToFile("Starting writeContract", {
-            context,
-          });
-
-          const account = privateKeyToAccount(privateKey as `0x${string}`);
-          // Ensure the account is properly set up
-          logToFile("Account initialized", {
-            address: account.address,
-            privateKey: privateKey,
-          });
-          if (!account) {
-            return {
-              content: [
-                {
-                  type: "text",
-                  text: "Account not initialized. Check PRIVATE_KEY environment variable.",
-                },
-              ],
-            };
-          }
-
-          // Log the account address for debugging
-          console.log(`Using account: ${account.address}`);
-          const client = createWalletClient({
-            account,
-            chain: monadTestnet,
-            transport: http(),
-          });
-
-          const { request } = await publicClient.simulateContract({
-            address: address as `0x${string}`,
-            abi,
-            functionName,
-            args,
-            value: value ? BigInt(value) : undefined,
-            account,
-          });
-
-          const hash = await client.writeContract(request);
-
-          return {
-            content: [
-              {
-                type: "text",
-                text: `Transaction sent. Hash: ${hash}`,
-              },
-            ],
-          };
-        } catch (error) {
-          console.error("Error writing to contract:", error);
-          return {
-            content: [
-              {
-                type: "text",
-                text: `Failed to write to contract. Error: ${
-                  error instanceof Error ? error.message : String(error)
-                }`,
-              },
-            ],
-          };
-        }
-      }
-    );
+    //IN BETA
     // server.tool(
-    //   "monad-rpc",
-    //   "Execute various Monad blockchain RPC calls with a single tool. Available tools: get-mon-balance, get-transaction, get-erc20-balance, get-contract-bytecode, decode-transaction-input, fetch-monad-docs, get-monad-constants, convert, write-contract, monad-rpc",
+    //   "writeContract",
+    //   "Write data to a smart contract. Format: { address: '0x...', abi: [...], functionName: 'string', args: [], value: '0' }",
     //   {
-    //     method: z.enum([
-    //       'getBalance',
-    //       'getBlock',
-    //       'getBlockNumber',
-    //       'getTransaction',
-    //       'getTransactionReceipt',
-    //       'getCode',
-    //       'getGasPrice',
-    //       'getLogs',
-    //       'call',
-    //       'estimateGas',
-    //       'debug_getRawBlock'
-    //     ]).describe('Select the Monad RPC method to execute. Available methods and their required parameters:\n' + 
-    //       '- getBalance: Get MON balance for any address\n' +
-    //       '- getBlock: Get block information by number\n' +
-    //       '- getBlockNumber: Get latest block number\n' +
-    //       '- getTransaction: Get detailed transaction information\n' +
-    //       '- getTransactionReceipt: Get transaction receipt with status and gas usage\n' +
-    //       '- getCode: Get contract bytecode\n' +
-    //       '- getGasPrice: Get current gas price on Monad\n' +
-    //       '- getLogs: Get event logs with filtering\n' +
-    //       '- call: Execute contract read call\n' +
-    //       '- estimateGas: Estimate gas for transaction\n' +
-    //       '- debug_getRawBlock: Get raw block data'
-    //     ),
-        
-    //     params: z.object({
-    //       // Block related
-    //       blockNumber: z.string()
-    //         .optional()
-    //         .describe('Monad block number in hex (e.g., "0x1"), or tags: "latest", "earliest", "pending". Used in: getBalance, getBlock, getCode, call'),
-          
-    //       // Address related
-    //       address: z.string()
-    //         .optional()
-    //         .describe('Monad address (0x-prefixed, e.g., "0x760AfE86e5de5fa0Ee542fc7B7B713e1c5425701" for WMON). Used in: getBalance, getCode, call, estimateGas, getLogs'),
-          
-    //       // Transaction related
-    //       txHash: z.string()
-    //         .optional()
-    //         .describe('Monad transaction hash (0x-prefixed, 64 characters). Used in: getTransaction, getTransactionReceipt'),
-          
-    //       // Contract related
-    //       data: z.string()
-    //         .optional()
-    //         .describe('Contract call data hex string (e.g., function selector + encoded params). Used in: call, estimateGas'),
-          
-    //       // Filter related
-    //       fromBlock: z.string()
-    //         .optional()
-    //         .describe('Start block number for event filtering on Monad. Used in: getLogs'),
-          
-    //       toBlock: z.string()
-    //         .optional()
-    //         .describe('End block number for event filtering on Monad. Used in: getLogs'),
-          
-    //       topics: z.array(z.string())
-    //         .optional()
-    //         .describe('Array of event topics for filtering Monad events. Used in: getLogs'),
-            
-    //       // Gas and value related
-    //       gasLimit: z.string()
-    //         .optional()
-    //         .describe('Gas limit in hex (Monad has different gas costs than Ethereum). Used in: estimateGas'),
-          
-    //       value: z.string()
-    //         .optional()
-    //         .describe('Value in MON wei to send with transaction. Used in: estimateGas, call')
-    //     }).describe('Parameters for the selected Monad RPC method')
+    //     address: z.string().describe("Contract address (0x...)"),
+    //     abi: z
+    //       .array(
+    //         z.object({
+    //           name: z.string(),
+    //           type: z.string(),
+    //           stateMutability: z.string().optional(),
+    //           inputs: z.array(
+    //             z.object({
+    //               name: z.string(),
+    //               type: z.string(),
+    //             })
+    //           ),
+    //           outputs: z
+    //             .array(
+    //               z.object({
+    //                 name: z.string(),
+    //                 type: z.string(),
+    //               })
+    //             )
+    //             .optional(),
+    //         })
+    //       )
+    //       .describe(
+    //         "Contract ABI array (e.g., [{ name: 'transfer', type: 'function', inputs: [{ name: 'to', type: 'address' }, { name: 'amount', type: 'uint256' }] }])"
+    //       ),
+    //     functionName: z
+    //       .string()
+    //       .describe("Function name to call (e.g., 'transfer')"),
+    //     args: z
+    //       .array(z.any())
+    //       .optional()
+    //       .describe(
+    //         "Function arguments array (e.g., ['0x...', '1000000000000000000'])"
+    //       ),
+    //     value: z
+    //       .string()
+    //       .optional()
+    //       .describe(
+    //         "Amount of native token to send with the transaction (in wei)"
+    //       ),
+    //     privateKey: z
+    //       .string()
+    //       .optional()
+    //       .describe("Private key for the account to use for the transaction"),
     //   },
-    //   async ({ method, params }) => {
+
+    //   async (
+    //     { address, abi, functionName, args, value, privateKey },
+    //     context
+    //   ) => {
     //     try {
-    //       // Define required parameters and their custom descriptions for each method
-    //       const methodRequirements: Record<string, Array<{param: string, required: boolean, description: string}>> = {
-    //         getBalance: [
-    //           {param: 'address', required: true, description: 'Monad address to check MON balance for'},
-    //           {param: 'blockNumber', required: false, description: 'Monad block number or tag to check balance at'}
-    //         ],
-    //         getBlock: [
-    //           {param: 'blockNumber', required: true, description: 'Monad block number or tag to retrieve'}
-    //         ],
-    //         getBlockNumber: [],
-    //         getTransaction: [
-    //           {param: 'txHash', required: true, description: 'Monad transaction hash to retrieve'}
-    //         ],
-    //         getTransactionReceipt: [
-    //           {param: 'txHash', required: true, description: 'Monad transaction hash to get receipt for'}
-    //         ],
-    //         getCode: [
-    //           {param: 'address', required: true, description: 'Monad contract address to get bytecode from'},
-    //           {param: 'blockNumber', required: false, description: 'Block number or tag to get code at'}
-    //         ],
-    //         getGasPrice: [],
-    //         getLogs: [
-    //           {param: 'fromBlock', required: false, description: 'Start block for Monad event filtering'},
-    //           {param: 'toBlock', required: false, description: 'End block for Monad event filtering'},
-    //           {param: 'address', required: false, description: 'Monad contract address to filter logs for'},
-    //           {param: 'topics', required: false, description: 'Event topics to filter by'}
-    //         ],
-    //         call: [
-    //           {param: 'address', required: true, description: 'Monad contract address to call'},
-    //           {param: 'data', required: true, description: 'Encoded function call data'},
-    //           {param: 'blockNumber', required: false, description: 'Block number or tag to execute call at'}
-    //         ],
-    //         estimateGas: [
-    //           {param: 'address', required: true, description: 'Monad contract address to estimate gas for'},
-    //           {param: 'data', required: true, description: 'Encoded function call data'},
-    //           {param: 'value', required: false, description: 'Value in MON wei to send with call'},
-    //           {param: 'gasLimit', required: false, description: 'Gas limit for estimation on Monad'}
-    //         ],
-    //         debug_getRawBlock: [
-    //           {param: 'blockNumber', required: true, description: 'Monad block number or tag to get raw data for'}
-    //         ]
-    //       };
-    
-    //       // Validate required parameters
-    //       const requirements = methodRequirements[method];
-    //       const missingParams = requirements
-    //         .filter(req => req.required && !params[req.param])
-    //         .map(req => `${req.param} (${req.description})`);
-    
-    //       if (missingParams.length > 0) {
+    //       logToFile("Starting writeContract", {
+    //         context,
+    //       });
+
+    //       const account = privateKeyToAccount(privateKey as `0x${string}`);
+    //       // Ensure the account is properly set up
+    //       logToFile("Account initialized", {
+    //         address: account.address,
+    //         privateKey: privateKey,
+    //       });
+    //       if (!account) {
     //         return {
-    //           content: [{
-    //             type: "text",
-    //             text: `Missing required parameters for ${method}:\n${missingParams.join('\n')}`
-    //           }]
+    //           content: [
+    //             {
+    //               type: "text",
+    //               text: "Account not initialized. Check PRIVATE_KEY environment variable.",
+    //             },
+    //           ],
     //         };
     //       }
-    
-    //       // Execute the RPC call using the publicClient (configured for Monad)
-    //       let result;
-    //       switch (method) {
-    //         case 'getBalance':
-    //           result = await publicClient.getBalance({
-    //             address: params.address as `0x${string}`,
-    //             blockNumber: params.blockNumber ? BigInt(params.blockNumber) : undefined
-    //           });
-    //           break;
-    
-    //         case 'getTransaction':
-    //           result = await publicClient.getTransaction({
-    //             hash: params.txHash as `0x${string}`
-    //           });
-    //           break;
-    
-    //         case 'getBlock':
-    //           result = await publicClient.getBlock({
-    //             blockNumber: params.blockNumber === 'latest' ? undefined : BigInt(params.blockNumber)
-    //           });
-    //           break;
-    
-    //         case 'getTransactionReceipt':
-    //           result = await publicClient.getTransactionReceipt({
-    //             hash: params.txHash as `0x${string}`
-    //           });
-    //           break;
-    
-    //         case 'getBlockNumber':
-    //           result = await publicClient.getBlockNumber();
-    //           break;
-    
-    //         case 'getGasPrice':
-    //           result = await publicClient.getGasPrice();
-    //           break;
-    
-    //         case 'getLogs':
-    //           result = await publicClient.getLogs({
-    //             fromBlock: params.fromBlock ? BigInt(params.fromBlock) : undefined,
-    //             toBlock: params.toBlock ? BigInt(params.toBlock) : undefined,
-    //             address: params.address as `0x${string}`,
-    //             topics: params.topics as [`0x${string}`]
-    //           });
-    //           break;
-    
-    //         default:
-    //           throw new Error(`Method ${method} not implemented`);
-    //       }
-    
+
+    //       // Log the account address for debugging
+    //       console.log(`Using account: ${account.address}`);
+    //       const client = createWalletClient({
+    //         account,
+    //         chain: monadTestnet,
+    //         transport: http(),
+    //       });
+
+    //       const { request } = await publicClient.simulateContract({
+    //         address: address as `0x${string}`,
+    //         abi,
+    //         functionName,
+    //         args,
+    //         value: value ? BigInt(value) : undefined,
+    //         account,
+    //       });
+
+    //       const hash = await client.writeContract(request);
+
     //       return {
-    //         content: [{
-    //           type: "text",
-    //           text: JSON.stringify({
-    //             method,
-    //             params,
-    //             result: result
-    //           }, (_, value) => 
-    //             typeof value === 'bigint' ? value.toString() : value
-    //           , 2)
-    //         }]
+    //         content: [
+    //           {
+    //             type: "text",
+    //             text: `Transaction sent. Hash: ${hash}`,
+    //           },
+    //         ],
     //       };
     //     } catch (error) {
-    //       console.error(`Error executing ${method}:`, error);
+    //       console.error("Error writing to contract:", error);
     //       return {
-    //         content: [{
-    //           type: "text",
-    //           text: `Error executing ${method} on Monad: ${error instanceof Error ? error.message : String(error)}`
-    //         }]
+    //         content: [
+    //           {
+    //             type: "text",
+    //             text: `Failed to write to contract. Error: ${
+    //               error instanceof Error ? error.message : String(error)
+    //             }`,
+    //           },
+    //         ],
     //       };
     //     }
     //   }
     // );
-    
+
+    // server.tool(
+    //   "monad-rpc",
+    //   "Execute various Monad blockchain RPC calls with a single tool. Available methods: getBalance, getBlock, getBlockNumber, getTransaction, getTransactionReceipt, getCode, getGasPrice, getLogs, call, estimateGas, debug_getRawBlock",
+    //   {
+    //     method: z
+    //       .enum([
+    //         "getBalance",
+    //         "getBlock",
+    //         "getBlockNumber",
+    //         "getTransaction",
+    //         "getTransactionReceipt",
+    //         "getCode",
+    //         "getGasPrice",
+    //         "getLogs",
+    //         "call",
+    //         "estimateGas",
+    //         "debug_getRawBlock",
+    //       ])
+    //       .describe(
+    //         "Select the Monad RPC method to execute. Available methods and their required parameters:\n" +
+    //           "- getBalance: Get MON balance for any address\n" +
+    //           "- getBlock: Get block information by number\n" +
+    //           "- getBlockNumber: Get latest block number\n" +
+    //           "- getTransaction: Get detailed transaction information\n" +
+    //           "- getTransactionReceipt: Get transaction receipt with status and gas usage\n" +
+    //           "- getCode: Get contract bytecode\n" +
+    //           "- getGasPrice: Get current gas price on Monad\n" +
+    //           "- getLogs: Get event logs with filtering\n" +
+    //           "- call: Execute contract read call\n" +
+    //           "- estimateGas: Estimate gas for transaction\n" +
+    //           "- debug_getRawBlock: Get raw block data"
+    //       ),
+
+    //     params: z
+    //       .object({
+    //         // Block related
+    //         blockNumber: z
+    //           .string()
+    //           .optional()
+    //           .describe(
+    //             'Monad block number in hex (e.g., "0x1"), or tags: "latest", "earliest", "pending". Used in: getBalance, getBlock, getCode, call'
+    //           ),
+
+    //         // Address related
+    //         address: z
+    //           .string()
+    //           .optional()
+    //           .describe(
+    //             'Monad address (0x-prefixed, e.g., "0x760AfE86e5de5fa0Ee542fc7B7B713e1c5425701" for WMON). Used in: getBalance, getCode, call, estimateGas, getLogs'
+    //           ),
+
+    //         // Transaction related
+    //         txHash: z
+    //           .string()
+    //           .optional()
+    //           .describe(
+    //             "Monad transaction hash (0x-prefixed, 64 characters). Used in: getTransaction, getTransactionReceipt"
+    //           ),
+
+    //         // Contract related
+    //         data: z
+    //           .string()
+    //           .optional()
+    //           .describe(
+    //             "Contract call data hex string (e.g., function selector + encoded params). Used in: call, estimateGas"
+    //           ),
+
+    //         // Filter related
+    //         fromBlock: z
+    //           .string()
+    //           .optional()
+    //           .describe(
+    //             "Start block number for event filtering on Monad. Used in: getLogs"
+    //           ),
+
+    //         toBlock: z
+    //           .string()
+    //           .optional()
+    //           .describe(
+    //             "End block number for event filtering on Monad. Used in: getLogs"
+    //           ),
+
+    //         topics: z
+    //           .array(z.string())
+    //           .optional()
+    //           .describe(
+    //             "Array of event topics for filtering Monad events. Used in: getLogs"
+    //           ),
+
+    //         // Gas and value related
+    //         gasLimit: z
+    //           .string()
+    //           .optional()
+    //           .describe(
+    //             "Gas limit in hex (Monad has different gas costs than Ethereum). Used in: estimateGas"
+    //           ),
+
+    //         value: z
+    //           .string()
+    //           .optional()
+    //           .describe(
+    //             "Value in MON wei to send with transaction. Used in: estimateGas, call"
+    //           ),
+    //       })
+    //       .describe("Parameters for the selected Monad RPC method"),
+    //   },
+    //   async ({ method, params }) => {
+    //     try {
+    //       // Define required parameters and their custom descriptions for each method
+    //       const methodRequirements: Record<
+    //         string,
+    //         Array<{ param: string; required: boolean; description: string }>
+    //       > = {
+    //         getBalance: [
+    //           {
+    //             param: "address",
+    //             required: true,
+    //             description: "Monad address to check MON balance for",
+    //           },
+    //           {
+    //             param: "blockNumber",
+    //             required: false,
+    //             description: "Monad block number or tag to check balance at",
+    //           },
+    //         ],
+    //         getBlock: [
+    //           {
+    //             param: "blockNumber",
+    //             required: true,
+    //             description: "Monad block number or tag to retrieve",
+    //           },
+    //         ],
+    //         getBlockNumber: [],
+    //         getTransaction: [
+    //           {
+    //             param: "txHash",
+    //             required: true,
+    //             description: "Monad transaction hash to retrieve",
+    //           },
+    //         ],
+    //         getTransactionReceipt: [
+    //           {
+    //             param: "txHash",
+    //             required: true,
+    //             description: "Monad transaction hash to get receipt for",
+    //           },
+    //         ],
+    //         getCode: [
+    //           {
+    //             param: "address",
+    //             required: true,
+    //             description: "Monad contract address to get bytecode from",
+    //           },
+    //           {
+    //             param: "blockNumber",
+    //             required: false,
+    //             description: "Block number or tag to get code at",
+    //           },
+    //         ],
+    //         getGasPrice: [],
+    //         getLogs: [
+    //           {
+    //             param: "fromBlock",
+    //             required: false,
+    //             description: "Start block for Monad event filtering",
+    //           },
+    //           {
+    //             param: "toBlock",
+    //             required: false,
+    //             description: "End block for Monad event filtering",
+    //           },
+    //           {
+    //             param: "address",
+    //             required: false,
+    //             description: "Monad contract address to filter logs for",
+    //           },
+    //           {
+    //             param: "topics",
+    //             required: false,
+    //             description: "Event topics to filter by",
+    //           },
+    //         ],
+    //         call: [
+    //           {
+    //             param: "address",
+    //             required: true,
+    //             description: "Monad contract address to call",
+    //           },
+    //           {
+    //             param: "data",
+    //             required: true,
+    //             description: "Encoded function call data",
+    //           },
+    //           {
+    //             param: "blockNumber",
+    //             required: false,
+    //             description: "Block number or tag to execute call at",
+    //           },
+    //         ],
+    //         estimateGas: [
+    //           {
+    //             param: "address",
+    //             required: true,
+    //             description: "Monad contract address to estimate gas for",
+    //           },
+    //           {
+    //             param: "data",
+    //             required: true,
+    //             description: "Encoded function call data",
+    //           },
+    //           {
+    //             param: "value",
+    //             required: false,
+    //             description: "Value in MON wei to send with call",
+    //           },
+    //           {
+    //             param: "gasLimit",
+    //             required: false,
+    //             description: "Gas limit for estimation on Monad",
+    //           },
+    //         ],
+    //         debug_getRawBlock: [
+    //           {
+    //             param: "blockNumber",
+    //             required: true,
+    //             description: "Monad block number or tag to get raw data for",
+    //           },
+    //         ],
+    //       };
+
+    //       // Validate required parameters
+    //       const requirements = methodRequirements[method];
+    //       const missingParams = requirements
+    //         .filter(
+    //           (req) => req.required && !params[req.param as keyof typeof params]
+    //         )
+    //         .map((req) => `${req.param} (${req.description})`);
+
+    //       if (missingParams.length > 0) {
+    //         return {
+    //           content: [
+    //             {
+    //               type: "text",
+    //               text: `Missing required parameters for ${method}:\n${missingParams.join(
+    //                 "\n"
+    //               )}`,
+    //             },
+    //           ],
+    //         };
+    //       }
+
+    //       // Execute the RPC call using the publicClient (configured for Monad)
+    //       let result;
+    //       switch (method) {
+    //         case "getBalance":
+    //           result = await publicClient.getBalance({
+    //             address: params.address as `0x${string}`,
+    //             blockNumber: params.blockNumber
+    //               ? BigInt(params.blockNumber)
+    //               : undefined,
+    //           });
+    //           break;
+
+    //         case "getTransaction":
+    //           result = await publicClient.getTransaction({
+    //             hash: params.txHash as `0x${string}`,
+    //           });
+    //           break;
+
+    //         case "getBlock":
+    //           result = await publicClient.getBlock({
+    //             blockNumber:
+    //               params.blockNumber && params.blockNumber !== "latest"
+    //                 ? BigInt(params.blockNumber)
+    //                 : undefined,
+    //           });
+    //           break;
+
+    //         case "getTransactionReceipt":
+    //           result = await publicClient.getTransactionReceipt({
+    //             hash: params.txHash as `0x${string}`,
+    //           });
+    //           break;
+
+    //         case "getBlockNumber":
+    //           result = await publicClient.getBlockNumber();
+    //           break;
+
+    //         case "getGasPrice":
+    //           result = await publicClient.getGasPrice();
+    //           break;
+
+    //         case "getLogs":
+    //           result = await publicClient.getLogs({
+    //             fromBlock: params.fromBlock
+    //               ? BigInt(params.fromBlock)
+    //               : undefined,
+    //             toBlock: params.toBlock ? BigInt(params.toBlock) : undefined,
+    //             address: params.address as `0x${string}`,
+    //             events: params.topics
+    //               ? [params.topics as [`0x${string}`]]
+    //               : undefined,
+    //           });
+    //           break;
+
+    //         default:
+    //           throw new Error(`Method ${method} not implemented`);
+    //       }
+
+    //       return {
+    //         content: [
+    //           {
+    //             type: "text",
+    //             text: JSON.stringify(
+    //               {
+    //                 method,
+    //                 params,
+    //                 result: result,
+    //               },
+    //               (_, value) =>
+    //                 typeof value === "bigint" ? value.toString() : value,
+    //               2
+    //             ),
+    //           },
+    //         ],
+    //       };
+    //     } catch (error) {
+    //       console.error(`Error executing ${method}:`, error);
+    //       return {
+    //         content: [
+    //           {
+    //             type: "text",
+    //             text: `Error executing ${method} on Monad: ${
+    //               error instanceof Error ? error.message : String(error)
+    //             }`,
+    //           },
+    //         ],
+    //       };
+    //     }
+    //   }
+    // );
+
     function serializeValue(value: any): any {
       // Handle null and undefined
       if (value == null) {
@@ -1405,8 +1576,6 @@ export const mcpHandler = initializeMcpApiHandler(
         };
       }
     }
-
-
   },
   {
     capabilities: {
