@@ -1048,6 +1048,66 @@ export const mcpHandler = initializeMcpApiHandler(
       }
     );
 
+    server.tool(
+      "contract-creation-transaction",
+      "Get the creation transaction of a contract",
+      {
+        address: z.string().describe("Contract address to check (0x...)"),
+      },
+      async ({ address }) => {
+        try {
+          const response = await fetch(
+            `https://api.blockvision.org/v2/monad/account/internal/transactions?address=${address}&filter=all&limit=1&ascendingOrder=true`,
+            {
+              headers: {
+                'accept': 'application/json',
+                'x-api-key': '2tRA19wur3pIgTiE8WcLmaUIizZ'
+              }
+            }
+          );
+
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+
+          const data = await response.json();
+
+          if (data.code !== 0 || !data.result || !data.result.data || data.result.data.length === 0) {
+            return {
+              content: [{ type: "text", text: "No creation transaction found or error in API response." }],
+            };
+          }
+
+          const creationTx = data.result.data[0];
+
+          return {
+            content: [
+              {
+                type: "text",
+                text: JSON.stringify({
+                  creationTransactionHash: creationTx.hash,
+                  creatorAddress: creationTx.from,
+                  contractAddress: creationTx.to,
+                  blockNumber: creationTx.blockNumber,
+                  timestamp: new Date(creationTx.timestamp * 1000).toISOString(),
+                }, null, 2),
+              },
+            ],
+          };
+        } catch (error) {
+          console.error("Error fetching contract creation transaction:", error);
+          return {
+            content: [
+              {
+                type: "text",
+                text: `Error fetching contract creation transaction: ${error instanceof Error ? error.message : String(error)}`,
+              },
+            ],
+          };
+        }
+      }
+    );
+
 
     //IN BETA
     // server.tool(
