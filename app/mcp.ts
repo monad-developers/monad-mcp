@@ -834,7 +834,7 @@ export const mcpHandler = initializeMcpApiHandler(
     );
     server.tool(
       "decode-calldata",
-      "Decode Ethereum transaction calldata and get function information",
+      "Decode transaction calldata and get function information",
       {
         input: z
           .object({
@@ -844,10 +844,6 @@ export const mcpHandler = initializeMcpApiHandler(
               .length(66)
               .optional()
               .describe("Transaction hash or explorer URL"),
-            chainId: z
-              .string()
-              .optional()
-              .describe("Chain ID (required if tx is a hash)"),
           })
           .refine((data) => data.calldata || data.tx, {
             message: "Either calldata or tx must be provided",
@@ -860,57 +856,21 @@ export const mcpHandler = initializeMcpApiHandler(
           // If transaction hash/URL is provided, fetch the calldata
           if (input.tx) {
             try {
-              let txHash: string;
-              let chain: any;
+              let txHash: string | undefined;
 
               // Check if input is a full transaction hash
               if (/^0x([A-Fa-f0-9]{64})$/.test(input.tx)) {
                 txHash = input.tx;
-
-                if (!input.chainId)
-                  throw new Error(
-                    "Chain ID required when using transaction hash"
-                  );
-                const chainId = parseInt(input.chainId);
-                chain = monadTestnet;
-                if (!chain) throw new Error(`Unsupported chain ID: ${chainId}`);
               } else {
                 // Handle explorer URL
-                txHash = input.tx.split("/").pop()!;
+                txHash = input.tx.split("/").pop();
+              }
 
-                // Find chain from explorer URL
-                const chainKey = Object.keys(c as any).filter((chainKey) => {
-                  const chain = c[chainKey as keyof typeof c] as Chain;
-
-                  if (!chain.blockExplorers) return false;
-
-                  const explorerDomainDefault = chain.blockExplorers.default.url
-                    .split("//")
-                    .pop()!;
-                  const explorerDomainEtherscan =
-                    chain.blockExplorers.etherscan?.url.split("//").pop();
-
-                  return input
-                    .tx!.split("/")
-                    .some(
-                      (urlPart) =>
-                        urlPart.toLowerCase() ===
-                          explorerDomainDefault.toLowerCase() ||
-                        (explorerDomainEtherscan &&
-                          urlPart.toLowerCase() ===
-                            explorerDomainEtherscan.toLowerCase())
-                    );
-                })[0];
-
-                if (!chainKey)
-                  throw new Error(
-                    "Could not determine chain from explorer URL"
-                  );
-                chain = c[chainKey as keyof typeof c];
+              if (!txHash) {
+                throw new Error("Invalid transaction hash/URL");
               }
 
               // Create client and fetch transaction
-
               const transaction = await publicClient.getTransaction({
                 hash: txHash as Hex,
               });
@@ -934,7 +894,6 @@ export const mcpHandler = initializeMcpApiHandler(
 
           // Get function selector (first 4 bytes / 8 characters after 0x)
           const selector = calldata.slice(0, 10);
-          console.log("selector", selector);
           // Fetch function interface
           const functionInterface = await fetchFunctionInterface({ selector });
 
