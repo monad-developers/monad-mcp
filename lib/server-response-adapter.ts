@@ -1,6 +1,6 @@
 import { EventEmitter } from "node:events";
 
-import { type ServerResponse } from "node:http";
+import type { ServerResponse } from "node:http";
 
 type WriteheadArgs = {
   statusCode: number;
@@ -42,7 +42,7 @@ export function createServerResponseAdapter(
       return fakeServerResponse;
     };
 
-    let bufferedData: Uint8Array[] = [];
+    const bufferedData: Uint8Array[] = [];
 
     const write = (
       chunk: Buffer | string,
