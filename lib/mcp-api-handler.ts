@@ -1,11 +1,15 @@
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
-import { IncomingHttpHeaders, IncomingMessage, ServerResponse } from "http";
-import { createClient } from "redis";
+import {
+  type IncomingHttpHeaders,
+  IncomingMessage,
+  ServerResponse,
+} from "http";
 import { Socket } from "net";
 import { Readable } from "stream";
-import { ServerOptions } from "@modelcontextprotocol/sdk/server/index.js";
 import { maxDuration } from "@/app/sse/route";
+import type { ServerOptions } from "@modelcontextprotocol/sdk/server/index.js";
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
+import { createClient } from "redis";
 
 interface SerializedRequest {
   requestId: string;
@@ -19,7 +23,6 @@ export function initializeMcpApiHandler(
   initializeServer: (server: McpServer) => void,
   serverOptions: ServerOptions = {}
 ) {
-  
   const redisUrl = process.env.REDIS_URL || process.env.KV_URL;
   if (!redisUrl) {
     throw new Error("REDIS_URL environment variable is not set");
@@ -40,8 +43,7 @@ export function initializeMcpApiHandler(
 
   let servers: McpServer[] = [];
 
-  return async function 
-  (req: Request, res: ServerResponse) {
+  return async (req: Request, res: ServerResponse) => {
     await redisPromise;
     const url = new URL(req.url || "", "https://example.com");
     if (url.pathname === "/sse") {
@@ -68,9 +70,9 @@ export function initializeMcpApiHandler(
         type: "log" | "error";
         messages: string[];
       }[] = [];
-      logInContext("log",JSON.stringify(transport,null,2))
+      logInContext("log", JSON.stringify(transport, null, 2));
 
-      logInContext("log", JSON.stringify(req,null,2));
+      logInContext("log", JSON.stringify(req, null, 2));
 
       // This ensures that we logs in the context of the right invocation since the subscriber
       // is not itself invoked in request context.
@@ -205,7 +207,7 @@ export function initializeMcpApiHandler(
       );
       console.log(`Published requests:${sessionId}`, serializedRequest);
 
-      let timeout = setTimeout(async () => {
+      const timeout = setTimeout(async () => {
         await redis.unsubscribe(`responses:${sessionId}:${requestId}`);
         res.statusCode = 408;
         res.end("Request timed out");
