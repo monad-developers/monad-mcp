@@ -841,7 +841,6 @@ export const mcpHandler = initializeMcpApiHandler(
             calldata: z.string().optional().describe("Raw calldata to decode"),
             tx: z
               .string()
-              .length(66)
               .optional()
               .describe("Transaction hash or explorer URL"),
           })
