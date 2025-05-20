@@ -216,8 +216,9 @@ export const etherscanChains: { [name: string]: Chain } = {
   // xaiTestnet,
 };
 
-// TODO: these should be placed in provider and memoized
+// @deprecated Use useChainIdToChain() hook instead
 export const chainIdToChain = (() => {
+  console.warn('Direct import of chainIdToChain is deprecated. Use useChainIdToChain() hook from ChainContext instead.');
   let res: {
     [chainId: number]: Chain;
   } = {};
@@ -229,8 +230,9 @@ export const chainIdToChain = (() => {
   return res;
 })();
 
-// TODO: these should be placed in provider and memoized
+// @deprecated Use useErc3770ShortNameToChain() hook instead
 export const erc3770ShortNameToChain = (() => {
+  console.warn('Direct import of erc3770ShortNameToChain is deprecated. Use useErc3770ShortNameToChain() hook from ChainContext instead.');
   let res: {
     [shortName: string]: Chain;
   } = {};
@@ -248,8 +250,9 @@ export const erc3770ShortNameToChain = (() => {
   return res;
 })();
 
-// TODO: these should be placed in provider and memoized
+// @deprecated Use useChainIdToImage() hook instead
 export const chainIdToImage = (() => {
+  console.warn('Direct import of chainIdToImage is deprecated. Use useChainIdToImage() hook from ChainContext instead.');
   const basePath = "/chainIcons";
 
   let res: {

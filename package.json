@@ -19,9 +19,10 @@
 		"zod": "^3.24.2"
 	},
 	"devDependencies": {
-		"@types/node": "^20",
-		"@types/react": "^19",
-		"typescript": "^5"
+		"@types/node": "^20.17.48",
+		"@types/react": "^19.1.4",
+		"@types/react-dom": "^19.1.5",
+		"typescript": "^5.8.3"
 	},
 	"packageManager": "pnpm@8.15.7+sha512.c85cd21b6da10332156b1ca2aa79c0a61ee7ad2eb0453b88ab299289e9e8ca93e6091232b25c07cbf61f6df77128d9c849e5c9ac6e44854dbd211c49f3a67adc"
 }
