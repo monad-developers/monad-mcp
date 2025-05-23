@@ -1,24 +1,27 @@
-import * as fs from "fs";
-import * as path from "path";
+import { z } from "zod";
+import { initializeMcpApiHandler } from "../lib/mcp-api-handler";
 import {
-  http,
-  type Hex,
   createPublicClient,
   formatUnits,
   getContract,
-  hexToBigInt,
-  hexToString,
-  isHex,
-  numberToHex,
-  pad,
-  stringToHex,
+  http,
   stringify,
-  keccak256 as toKeccak256,
 } from "viem";
-import { z } from "zod";
-import { initializeMcpApiHandler } from "../lib/mcp-api-handler";
-import { ERC20_ABI, monadTestnet } from "./commons/constants";
+import {
+  numberToHex,
+  hexToBigInt,
+  isHex,
+  hexToString,
+  stringToHex,
+  Hex,
+  Chain,
+  keccak256 as toKeccak256,
+  pad,
+} from "viem";
+import { c } from "./commons/common";
 import { fetchFunctionInterface } from "./commons/decoder";
+
+import { ERC20_ABI, monadTestnet } from "./commons/constants";
 import { startHexWith0x } from "./commons/utils";
 
 export const mcpHandler = initializeMcpApiHandler(
@@ -28,33 +31,7 @@ export const mcpHandler = initializeMcpApiHandler(
       transport: http(),
     });
 
-    // Add more tools, resources, and prompts here
-    // server.tool("echo", { message: z.string() }, async ({ message }) => ({
-    //   content: [{ type: "text", text: `Tool echo: ${message}` }],
-    // }))
-    const logToFile = (message: string, data?: any) => {
-      const timestamp = new Date().toISOString();
-      const logMessage = `${timestamp} - ${message}${
-        data
-          ? "\nData: " +
-            JSON.stringify(
-              data,
-              (key, value) =>
-                typeof value === "bigint" ? value.toString() : value,
-              2
-            )
-          : ""
-      }\n`;
 
-      // Create logs directory if it doesn't exist
-      const logDir = path.join(process.cwd(), "logs");
-      if (!fs.existsSync(logDir)) {
-        fs.mkdirSync(logDir);
-      }
-
-      // Write to log file
-      fs.appendFileSync(path.join(logDir, "mcp-server.log"), logMessage);
-    };
 
     server.tool(
       "get-mon-balance",
@@ -62,7 +39,6 @@ export const mcpHandler = initializeMcpApiHandler(
       {
         address: z
           .string()
-          .length(42)
           .describe("Monad testnet address to check balance for"),
       },
       async ({ address }) => {
@@ -99,7 +75,7 @@ export const mcpHandler = initializeMcpApiHandler(
       "get-transaction",
       "Get information about a transaction on Monad testnet",
       {
-        txHash: z.string().length(66).describe("Transaction hash to look up"),
+        txHash: z.string().describe("Transaction hash to look up"),
       },
       async ({ txHash }) => {
         try {
@@ -146,13 +122,9 @@ export const mcpHandler = initializeMcpApiHandler(
       "get-erc20-balance",
       "Get ERC20 token balance for an address on Monad testnet",
       {
-        tokenAddress: z
-          .string()
-          .length(42)
-          .describe("ERC20 token contract address"),
+        tokenAddress: z.string().describe("ERC20 token contract address"),
         walletAddress: z
           .string()
-          .length(42)
           .describe("Wallet address to check balance for"),
       },
       async ({ tokenAddress, walletAddress }) => {
@@ -170,7 +142,10 @@ export const mcpHandler = initializeMcpApiHandler(
             contract.read.name(),
           ]);
 
-          const formattedBalance = formatUnits(balance, decimals);
+          const formattedBalance = formatUnits(
+            balance as bigint,
+            decimals as number
+          );
 
           return {
             content: [
@@ -256,10 +231,7 @@ export const mcpHandler = initializeMcpApiHandler(
       "get-tx-receipt",
       "Get detailed transaction receipt from Monad testnet",
       {
-        txHash: z
-          .string()
-          .length(66)
-          .describe("Transaction hash to get receipt for"),
+        txHash: z.string().describe("Transaction hash to get receipt for"),
       },
       async ({ txHash }) => {
         try {
@@ -287,10 +259,8 @@ export const mcpHandler = initializeMcpApiHandler(
                     status: receipt.status === "success" ? "Success" : "Failed",
                     blockNumber: receipt.blockNumber.toString(),
                     gasUsed: receipt.gasUsed.toString(),
-                    effectiveGasPrice: `${formatUnits(
-                      receipt.effectiveGasPrice,
-                      9
-                    )} Gwei`,
+                    effectiveGasPrice:
+                      formatUnits(receipt.effectiveGasPrice, 9) + " Gwei",
                     cumulativeGasUsed: receipt.cumulativeGasUsed.toString(),
                     logs: receipt.logs.length,
                     contractAddress: receipt.contractAddress, // null if not contract creation
@@ -320,10 +290,7 @@ export const mcpHandler = initializeMcpApiHandler(
       "get-contract-source",
       "Get the source code for a contract on Monad testnet",
       {
-        address: z
-          .string()
-          .length(42)
-          .describe("Contract address to get source code for"),
+        address: z.string().describe("Contract address to get source code for"),
       },
       async ({ address }) => {
         try {
@@ -332,7 +299,7 @@ export const mcpHandler = initializeMcpApiHandler(
             {
               method: "GET",
               headers: {
-                "x-api-key": process.env.BLOCK_VISION_API_KEY || "",
+                "x-api-key":  process.env.BLOCK_VISION_API_KEY || '',
                 accept: "application/json",
               },
             }
@@ -378,10 +345,9 @@ export const mcpHandler = initializeMcpApiHandler(
       {},
       async () => {
         try {
-          const [gasPrice, maxPriorityFee] = await Promise.all([
-            publicClient.getGasPrice(),
-            publicClient.estimateMaxPriorityFeePerGas(),
-          ]);
+          const gasPrice = await publicClient.getGasPrice();
+          const maxPriorityFee =
+            await publicClient.estimateMaxPriorityFeePerGas();
 
           return {
             content: [
@@ -406,28 +372,10 @@ export const mcpHandler = initializeMcpApiHandler(
         }
       }
     );
-    // server.tool("monad-docs", {}, async () => {
-    //   try {
-    //     const response = await fetch("https://docs.monad.xyz/llms-full.txt");
-    //     if (!response.ok) {
-    //       return {
-    //         content: [{ type: "text", text: `Error fetching Monad LLMs full text: ${response.status}` }],
-    //       };
-    //     }
-    //     const text = await response.text();
-    //     return {
-    //       content: [{ type: "text", text: text }],
-    //     };
-    //   } catch (error) {
-    //     console.error("Error fetching Monad LLMs full text:", error);
-    //     return {
-    //       content: [{ type: "text", text: `Error fetching Monad LLMs full text: ${error instanceof Error ? error.message : String(error)}` }],
-    //     };
-    //   }
-    // });
+
     server.tool(
       "monad-docs",
-      "Fetch Monad developer documentation. The LLM should use the link and open the page.",
+      "Fetch the index of Monad developer documentation. This tool returns a list of available Monad documentation pages with their URLs. To read the content of a specific page, use the 'read-monad-docs' tool with the provided URL. Always call this tool first to discover available documentation links before attempting to read any documentation page.",
       {},
       async () => {
         try {
@@ -455,12 +403,20 @@ export const mcpHandler = initializeMcpApiHandler(
             content: [
               {
                 type: "text",
-                text: "Here's a summary of Monad documentation. Please open the a link to view the full documentation:DONT USE THE INFO DIRECTLY OPEN A LINK FIRST",
+                text: [
+                  "# Monad Documentation Index",
+                  "",
+                  "⚠️ IMPORTANT: This is only an index of available documentation. To read any document:",
+                  "1. Find the document you want from the list below",
+                  "2. Use the 'read-monad-docs' tool with the full URL to read its contents",
+                  "",
+                  "Available Documentation Links:",
+                  "",
+                  
+                  processedText+"Now use the 'read-monad-docs' tool with the full URL to read its contents",
+                ].join("\n")
               },
-              {
-                type: "text",
-                text: `# Monad Documentation Index\n\nSelect a document to view by using the read-monad-docs tool with the URL provided below each link:\n\n${processedText}`,
-              },
+            
             ],
           };
         } catch (error) {
@@ -480,7 +436,7 @@ export const mcpHandler = initializeMcpApiHandler(
     );
     server.tool(
       "read-monad-docs",
-      "Fetch and read the contents of a specific Monad documentation page. This should be used after the monad-docs tool to fetch the actual data.",
+      "Don't use before Monad docs tool, use Monad docs tool first. Fetch and read the contents of a specific Monad documentation page. This should be used after the monad-docs tool to fetch the actual data.",
       {
         url: z
           .string()
@@ -490,8 +446,7 @@ export const mcpHandler = initializeMcpApiHandler(
       async ({ url }) => {
         try {
           // Helper function to clean HTML content
-          function cleanDocContent(rawHtml: string): string {
-            let html = rawHtml;
+          function cleanDocContent(html: string): string {
             // Remove script tags and their content
             html = html.replace(
               /<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi,
@@ -714,14 +669,14 @@ export const mcpHandler = initializeMcpApiHandler(
             level: "info",
             data: { input, operations },
           });
-          let currentValue: string | number = input;
+          let currentValue: any = input;
 
           // First convert from input format to initial value
           // Check input type
           if (typeof input === "string") {
             if (isHex(input)) {
               currentValue = input as Hex;
-            } else if (!Number.isNaN(input)) {
+            } else if (!isNaN(Number(input))) {
               currentValue = Number(input);
             } else {
               currentValue = input;
@@ -739,11 +694,9 @@ export const mcpHandler = initializeMcpApiHandler(
                 case "toHex":
                   if (typeof currentValue === "string") {
                     return { operation, result: stringToHex(currentValue) };
-                  }
-                  if (typeof currentValue === "number") {
+                  } else if (typeof currentValue === "number") {
                     return { operation, result: numberToHex(currentValue) };
-                  }
-                  if (isHex(currentValue)) {
+                  } else if (isHex(currentValue)) {
                     return { operation, result: currentValue };
                   }
                   throw new Error("Cannot convert to hex");
@@ -766,8 +719,7 @@ export const mcpHandler = initializeMcpApiHandler(
                 case "toKeccak256":
                   if (isHex(currentValue)) {
                     return { operation, result: toKeccak256(currentValue) };
-                  }
-                  if (typeof currentValue === "string") {
+                  } else if (typeof currentValue === "string") {
                     return {
                       operation,
                       result: toKeccak256(stringToHex(currentValue)),
@@ -834,16 +786,19 @@ export const mcpHandler = initializeMcpApiHandler(
     );
     server.tool(
       "decode-calldata",
-      "Decode transaction calldata and get function information",
+      "Decode Ethereum transaction calldata and get function information",
       {
         input: z
           .object({
             calldata: z.string().optional().describe("Raw calldata to decode"),
             tx: z
               .string()
-              .length(66)
               .optional()
               .describe("Transaction hash or explorer URL"),
+            chainId: z
+              .string()
+              .optional()
+              .describe("Chain ID (required if tx is a hash)"),
           })
           .refine((data) => data.calldata || data.tx, {
             message: "Either calldata or tx must be provided",
@@ -856,21 +811,57 @@ export const mcpHandler = initializeMcpApiHandler(
           // If transaction hash/URL is provided, fetch the calldata
           if (input.tx) {
             try {
-              let txHash: string | undefined;
+              let txHash: string;
+              let chain: any;
 
               // Check if input is a full transaction hash
               if (/^0x([A-Fa-f0-9]{64})$/.test(input.tx)) {
                 txHash = input.tx;
+
+                if (!input.chainId)
+                  throw new Error(
+                    "Chain ID required when using transaction hash"
+                  );
+                const chainId = parseInt(input.chainId);
+                chain = monadTestnet;
+                if (!chain) throw new Error(`Unsupported chain ID: ${chainId}`);
               } else {
                 // Handle explorer URL
-                txHash = input.tx.split("/").pop();
-              }
+                txHash = input.tx.split("/").pop()!;
 
-              if (!txHash) {
-                throw new Error("Invalid transaction hash/URL");
+                // Find chain from explorer URL
+                const chainKey = Object.keys(c as any).filter((chainKey) => {
+                  const chain = c[chainKey as keyof typeof c] as Chain;
+
+                  if (!chain.blockExplorers) return false;
+
+                  const explorerDomainDefault = chain.blockExplorers.default.url
+                    .split("//")
+                    .pop()!;
+                  const explorerDomainEtherscan =
+                    chain.blockExplorers.etherscan?.url.split("//").pop();
+
+                  return input
+                    .tx!.split("/")
+                    .some(
+                      (urlPart) =>
+                        urlPart.toLowerCase() ===
+                          explorerDomainDefault.toLowerCase() ||
+                        (explorerDomainEtherscan &&
+                          urlPart.toLowerCase() ===
+                            explorerDomainEtherscan.toLowerCase())
+                    );
+                })[0];
+
+                if (!chainKey)
+                  throw new Error(
+                    "Could not determine chain from explorer URL"
+                  );
+                chain = c[chainKey as keyof typeof c];
               }
 
               // Create client and fetch transaction
+
               const transaction = await publicClient.getTransaction({
                 hash: txHash as Hex,
               });
@@ -894,6 +885,7 @@ export const mcpHandler = initializeMcpApiHandler(
 
           // Get function selector (first 4 bytes / 8 characters after 0x)
           const selector = calldata.slice(0, 10);
+          console.log("selector", selector);
           // Fetch function interface
           const functionInterface = await fetchFunctionInterface({ selector });
 
@@ -990,9 +982,7 @@ export const mcpHandler = initializeMcpApiHandler(
         functionName: z
           .string()
           .describe("Function name to call (e.g., 'balanceOf')"),
-        args: z
-          .array(z.any())
-          .optional()
+args: z.array(z.string()).default([])
           .describe("Function arguments array (e.g., ['0x...'])"),
       },
       async ({ address, abi, functionName, args }) => {
@@ -1025,9 +1015,9 @@ export const mcpHandler = initializeMcpApiHandler(
             `https://api.blockvision.org/v2/monad/account/internal/transactions?address=${address}&filter=all&limit=1&ascendingOrder=true`,
             {
               headers: {
-                accept: "application/json",
-                "x-api-key": process.env.BLOCK_VISION_API_KEY || "",
-              },
+                'accept': 'application/json',
+                'x-api-key': process.env.BLOCK_VISION_API_KEY || ''
+              }
             }
           );
 
@@ -1037,19 +1027,9 @@ export const mcpHandler = initializeMcpApiHandler(
 
           const data = await response.json();
 
-          if (
-            data.code !== 0 ||
-            !data.result ||
-            !data.result.data ||
-            data.result.data.length === 0
-          ) {
+          if (data.code !== 0 || !data.result || !data.result.data || data.result.data.length === 0) {
             return {
-              content: [
-                {
-                  type: "text",
-                  text: "No creation transaction found or error in API response.",
-                },
-              ],
+              content: [{ type: "text", text: "No creation transaction found or error in API response." }],
             };
           }
 
@@ -1059,19 +1039,13 @@ export const mcpHandler = initializeMcpApiHandler(
             content: [
               {
                 type: "text",
-                text: JSON.stringify(
-                  {
-                    creationTransactionHash: creationTx.hash,
-                    creatorAddress: creationTx.from,
-                    contractAddress: creationTx.to,
-                    blockNumber: creationTx.blockNumber,
-                    timestamp: new Date(
-                      creationTx.timestamp * 1000
-                    ).toISOString(),
-                  },
-                  null,
-                  2
-                ),
+                text: JSON.stringify({
+                  creationTransactionHash: creationTx.hash,
+                  creatorAddress: creationTx.from,
+                  contractAddress: creationTx.to,
+                  blockNumber: creationTx.blockNumber,
+                  timestamp: new Date(creationTx.timestamp * 1000).toISOString(),
+                }, null, 2),
               },
             ],
           };
@@ -1081,136 +1055,13 @@ export const mcpHandler = initializeMcpApiHandler(
             content: [
               {
                 type: "text",
-                text: `Error fetching contract creation transaction: ${
-                  error instanceof Error ? error.message : String(error)
-                }`,
+                text: `Error fetching contract creation transaction: ${error instanceof Error ? error.message : String(error)}`,
               },
             ],
           };
         }
       }
     );
-
-    //IN BETA
-    // server.tool(
-    //   "writeContract",
-    //   "Write data to a smart contract. Format: { address: '0x...', abi: [...], functionName: 'string', args: [], value: '0' }",
-    //   {
-    //     address: z.string().describe("Contract address (0x...)"),
-    //     abi: z
-    //       .array(
-    //         z.object({
-    //           name: z.string(),
-    //           type: z.string(),
-    //           stateMutability: z.string().optional(),
-    //           inputs: z.array(
-    //             z.object({
-    //               name: z.string(),
-    //               type: z.string(),
-    //             })
-    //           ),
-    //           outputs: z
-    //             .array(
-    //               z.object({
-    //                 name: z.string(),
-    //                 type: z.string(),
-    //               })
-    //             )
-    //             .optional(),
-    //         })
-    //       )
-    //       .describe(
-    //         "Contract ABI array (e.g., [{ name: 'transfer', type: 'function', inputs: [{ name: 'to', type: 'address' }, { name: 'amount', type: 'uint256' }] }])"
-    //       ),
-    //     functionName: z
-    //       .string()
-    //       .describe("Function name to call (e.g., 'transfer')"),
-    //     args: z
-    //       .array(z.any())
-    //       .optional()
-    //       .describe(
-    //         "Function arguments array (e.g., ['0x...', '1000000000000000000'])"
-    //       ),
-    //     value: z
-    //       .string()
-    //       .optional()
-    //       .describe(
-    //         "Amount of native token to send with the transaction (in wei)"
-    //       ),
-    //     privateKey: z
-    //       .string()
-    //       .optional()
-    //       .describe("Private key for the account to use for the transaction"),
-    //   },
-
-    //   async (
-    //     { address, abi, functionName, args, value, privateKey },
-    //     context
-    //   ) => {
-    //     try {
-    //       logToFile("Starting writeContract", {
-    //         context,
-    //       });
-
-    //       const account = privateKeyToAccount(privateKey as `0x${string}`);
-    //       // Ensure the account is properly set up
-    //       logToFile("Account initialized", {
-    //         address: account.address,
-    //         privateKey: privateKey,
-    //       });
-    //       if (!account) {
-    //         return {
-    //           content: [
-    //             {
-    //               type: "text",
-    //               text: "Account not initialized. Check PRIVATE_KEY environment variable.",
-    //             },
-    //           ],
-    //         };
-    //       }
-
-    //       // Log the account address for debugging
-    //       console.log(`Using account: ${account.address}`);
-    //       const client = createWalletClient({
-    //         account,
-    //         chain: monadTestnet,
-    //         transport: http(),
-    //       });
-
-    //       const { request } = await publicClient.simulateContract({
-    //         address: address as `0x${string}`,
-    //         abi,
-    //         functionName,
-    //         args,
-    //         value: value ? BigInt(value) : undefined,
-    //         account,
-    //       });
-
-    //       const hash = await client.writeContract(request);
-
-    //       return {
-    //         content: [
-    //           {
-    //             type: "text",
-    //             text: `Transaction sent. Hash: ${hash}`,
-    //           },
-    //         ],
-    //       };
-    //     } catch (error) {
-    //       console.error("Error writing to contract:", error);
-    //       return {
-    //         content: [
-    //           {
-    //             type: "text",
-    //             text: `Failed to write to contract. Error: ${
-    //               error instanceof Error ? error.message : String(error)
-    //             }`,
-    //           },
-    //         ],
-    //       };
-    //     }
-    //   }
-    // );
 
     server.tool(
       "monad-rpc",
@@ -1233,7 +1084,7 @@ export const mcpHandler = initializeMcpApiHandler(
           .describe(
             "Select the Monad RPC method to execute. Available methods and their required parameters:\n" +
               "- getBalance: Get MON balance for any address\n" +
-              "- getBlock: Get block information by number or latest\n" +
+              "- getBlock: Get block information by number or\n" +
               "- getBlockNumber: Get latest block number\n" +
               "- getTransaction: Get detailed transaction information\n" +
               "- getTransactionReceipt: Get transaction receipt with status and gas usage\n" +
@@ -1252,7 +1103,7 @@ export const mcpHandler = initializeMcpApiHandler(
               .string()
               .optional()
               .describe(
-                'Monad block number in hex (e.g., "0x1"), or tags: "latest". Used in: getBalance, getBlock, getCode, call'
+                'Monad block number in hex (e.g., "0x1"), or tag: "latest". Used in: getBalance, getBlock, getCode, call'
               ),
 
             // Address related
@@ -1529,7 +1380,7 @@ export const mcpHandler = initializeMcpApiHandler(
                   {
                     method,
                     params,
-                    result,
+                    result: result,
                   },
                   (_, value) =>
                     typeof value === "bigint" ? value.toString() : value,
@@ -1595,7 +1446,7 @@ export const mcpHandler = initializeMcpApiHandler(
         // Create contract instance with received ABI
         const contract = getContract({
           address,
-          abi,
+          abi: abi, // Parse the received ABI
           client: publicClient,
         });
 
