@@ -343,9 +343,10 @@ export const mcpHandler = initializeMcpApiHandler(
       {},
       async () => {
         try {
-          const gasPrice = await publicClient.getGasPrice();
-          const maxPriorityFee =
-            await publicClient.estimateMaxPriorityFeePerGas();
+          const [gasPrice, maxPriorityFee] = await Promise.all([
+            publicClient.getGasPrice(),
+            publicClient.estimateMaxPriorityFeePerGas()
+          ]);
 
           return {
             content: [
@@ -692,9 +693,11 @@ export const mcpHandler = initializeMcpApiHandler(
                 case "toHex":
                   if (typeof currentValue === "string") {
                     return { operation, result: stringToHex(currentValue) };
-                  } else if (typeof currentValue === "number") {
+                  }
+                   if (typeof currentValue === "number") {
                     return { operation, result: numberToHex(currentValue) };
-                  } else if (isHex(currentValue)) {
+                  }
+                   if (isHex(currentValue)) {
                     return { operation, result: currentValue };
                   }
                   throw new Error("Cannot convert to hex");
@@ -717,7 +720,8 @@ export const mcpHandler = initializeMcpApiHandler(
                 case "toKeccak256":
                   if (isHex(currentValue)) {
                     return { operation, result: toKeccak256(currentValue) };
-                  } else if (typeof currentValue === "string") {
+                  } 
+                   if (typeof currentValue === "string") {
                     return {
                       operation,
                       result: toKeccak256(stringToHex(currentValue)),
