@@ -1402,7 +1402,7 @@ export const mcpHandler = initializeMcpApiHandler(
                   {
                     method,
                     params,
-                    result: result,
+                    result,
                   },
                   (_, value) =>
                     typeof value === "bigint" ? value.toString() : value,
