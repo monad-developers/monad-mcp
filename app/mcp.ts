@@ -1057,7 +1057,7 @@ export const mcpHandler = initializeMcpApiHandler(
           .describe(
             "Select the Monad RPC method to execute. Available methods and their required parameters:\n" +
               "- getBalance: Get MON balance for any address\n" +
-              "- getBlock: Get block information by number or\n" +
+              "- getBlock: Get block information by number\n" +
               "- getBlockNumber: Get latest block number\n" +
               "- getTransaction: Get detailed transaction information\n" +
               "- getTransactionReceipt: Get transaction receipt with status and gas usage\n" +
