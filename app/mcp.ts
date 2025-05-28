@@ -1396,7 +1396,7 @@ export const mcpHandler = initializeMcpApiHandler(
                   {
                     method,
                     params,
-                    result: result,
+                    result,
                   },
                   (_, value) =>
                     typeof value === "bigint" ? value.toString() : value,
@@ -1462,7 +1462,7 @@ export const mcpHandler = initializeMcpApiHandler(
         // Create contract instance with received ABI
         const contract = getContract({
           address,
-          abi: abi, // Parse the received ABI
+          abi, // Parse the received ABI
           client: publicClient,
         });
 
