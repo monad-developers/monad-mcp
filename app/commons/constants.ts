@@ -28,6 +28,7 @@ export const monadTestnet = defineChain({
       blockCreated: 251449,
     },
   },
+  chainId: 10143,
   testnet: true,
 });
 

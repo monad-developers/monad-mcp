@@ -797,10 +797,7 @@ export const mcpHandler = initializeMcpApiHandler(
               .string()
               .optional()
               .describe("Transaction hash or explorer URL"),
-            chainId: z
-              .string()
-              .optional()
-              .describe("Chain ID (required if tx is a hash)"),
+            
           })
           .refine((data) => data.calldata || data.tx, {
             message: "Either calldata or tx must be provided",
@@ -820,11 +817,8 @@ export const mcpHandler = initializeMcpApiHandler(
               if (/^0x([A-Fa-f0-9]{64})$/.test(input.tx)) {
                 txHash = input.tx;
 
-                if (!input.chainId)
-                  throw new Error(
-                    "Chain ID required when using transaction hash"
-                  );
-                const chainId = parseInt(input.chainId);
+               
+                const chainId = monadTestnet.chainId;
                 chain = monadTestnet;
                 if (!chain) throw new Error(`Unsupported chain ID: ${chainId}`);
               } else {
