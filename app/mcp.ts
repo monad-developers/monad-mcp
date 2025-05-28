@@ -14,11 +14,9 @@ import {
   hexToString,
   stringToHex,
   Hex,
-  Chain,
   keccak256 as toKeccak256,
   pad,
 } from "viem";
-import { c } from "./commons/common";
 import { fetchFunctionInterface } from "./commons/decoder";
 
 import { ERC20_ABI, monadTestnet } from "./commons/constants";
@@ -345,7 +343,7 @@ export const mcpHandler = initializeMcpApiHandler(
         try {
           const [gasPrice, maxPriorityFee] = await Promise.all([
             publicClient.getGasPrice(),
-            publicClient.estimateMaxPriorityFeePerGas()
+            publicClient.estimateMaxPriorityFeePerGas(),
           ]);
 
           return {
@@ -694,10 +692,10 @@ export const mcpHandler = initializeMcpApiHandler(
                   if (typeof currentValue === "string") {
                     return { operation, result: stringToHex(currentValue) };
                   }
-                   if (typeof currentValue === "number") {
+                  if (typeof currentValue === "number") {
                     return { operation, result: numberToHex(currentValue) };
                   }
-                   if (isHex(currentValue)) {
+                  if (isHex(currentValue)) {
                     return { operation, result: currentValue };
                   }
                   throw new Error("Cannot convert to hex");
@@ -720,8 +718,8 @@ export const mcpHandler = initializeMcpApiHandler(
                 case "toKeccak256":
                   if (isHex(currentValue)) {
                     return { operation, result: toKeccak256(currentValue) };
-                  } 
-                   if (typeof currentValue === "string") {
+                  }
+                  if (typeof currentValue === "string") {
                     return {
                       operation,
                       result: toKeccak256(stringToHex(currentValue)),
@@ -797,7 +795,6 @@ export const mcpHandler = initializeMcpApiHandler(
               .string()
               .optional()
               .describe("Transaction hash or explorer URL"),
-            
           })
           .refine((data) => data.calldata || data.tx, {
             message: "Either calldata or tx must be provided",
@@ -811,52 +808,12 @@ export const mcpHandler = initializeMcpApiHandler(
           if (input.tx) {
             try {
               let txHash: string;
-              let chain: any;
-
               // Check if input is a full transaction hash
               if (/^0x([A-Fa-f0-9]{64})$/.test(input.tx)) {
                 txHash = input.tx;
-
-               
-                const chainId = monadTestnet.chainId;
-                chain = monadTestnet;
-                if (!chain) throw new Error(`Unsupported chain ID: ${chainId}`);
               } else {
-                // Handle explorer URL
                 txHash = input.tx.split("/").pop()!;
-
-                // Find chain from explorer URL
-                const chainKey = Object.keys(c as any).filter((chainKey) => {
-                  const chain = c[chainKey as keyof typeof c] as Chain;
-
-                  if (!chain.blockExplorers) return false;
-
-                  const explorerDomainDefault = chain.blockExplorers.default.url
-                    .split("//")
-                    .pop()!;
-                  const explorerDomainEtherscan =
-                    chain.blockExplorers.etherscan?.url.split("//").pop();
-
-                  return input
-                    .tx!.split("/")
-                    .some(
-                      (urlPart) =>
-                        urlPart.toLowerCase() ===
-                          explorerDomainDefault.toLowerCase() ||
-                        (explorerDomainEtherscan &&
-                          urlPart.toLowerCase() ===
-                            explorerDomainEtherscan.toLowerCase())
-                    );
-                })[0];
-
-                if (!chainKey)
-                  throw new Error(
-                    "Could not determine chain from explorer URL"
-                  );
-                chain = c[chainKey as keyof typeof c];
               }
-
-              // Create client and fetch transaction
 
               const transaction = await publicClient.getTransaction({
                 hash: txHash as Hex,

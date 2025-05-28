@@ -19,8 +19,9 @@ export const monadTestnet = defineChain({
   blockExplorers: {
     default: {
       name: "Monad Testnet explorer",
-      url: "https://testnet.monadexplorer.com",
+      url: "https://testnet.monvision.io/",
     },
+
   },
   contracts: {
     multicall3: {
