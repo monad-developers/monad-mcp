@@ -1,5 +1,10 @@
 import { z } from "zod";
+import { join } from "path";
 import { initializeMcpApiHandler } from "../lib/mcp-api-handler";
+import {
+  initializeTelemetry,
+  createTelemetryFunctions,
+} from "../lib/telemetry";
 import {
   createPublicClient,
   formatUnits,
@@ -29,6 +34,10 @@ export const mcpHandler = initializeMcpApiHandler(
       transport: http(),
     });
 
+    // Initialize telemetry
+    const telemetryConfig = initializeTelemetry();
+    const { withTelemetry } = createTelemetryFunctions(telemetryConfig);
+
     server.tool(
       "get-mon-balance",
       "Get MON balance for an address on Monad testnet",
@@ -37,7 +46,7 @@ export const mcpHandler = initializeMcpApiHandler(
           .string()
           .describe("Monad testnet address to check balance for"),
       },
-      async ({ address }) => {
+      withTelemetry("get-mon-balance", async ({ address }) => {
         try {
           const balance = await publicClient.getBalance({
             address: address as `0x${string}`,
@@ -52,7 +61,6 @@ export const mcpHandler = initializeMcpApiHandler(
             ],
           };
         } catch (error) {
-          console.error("Error getting balance:", error);
           return {
             content: [
               {
@@ -64,7 +72,7 @@ export const mcpHandler = initializeMcpApiHandler(
             ],
           };
         }
-      }
+      })
     );
 
     server.tool(
@@ -73,7 +81,7 @@ export const mcpHandler = initializeMcpApiHandler(
       {
         txHash: z.string().describe("Transaction hash to look up"),
       },
-      async ({ txHash }) => {
+      withTelemetry("get-transaction", async ({ txHash }) => {
         try {
           const tx = await publicClient.getTransaction({
             hash: txHash as `0x${string}`,
@@ -99,7 +107,6 @@ export const mcpHandler = initializeMcpApiHandler(
             ],
           };
         } catch (error) {
-          console.error("Error getting transaction:", error);
           return {
             content: [
               {
@@ -111,7 +118,7 @@ export const mcpHandler = initializeMcpApiHandler(
             ],
           };
         }
-      }
+      })
     );
 
     server.tool(
@@ -123,48 +130,51 @@ export const mcpHandler = initializeMcpApiHandler(
           .string()
           .describe("Wallet address to check balance for"),
       },
-      async ({ tokenAddress, walletAddress }) => {
-        try {
-          const contract = getContract({
-            address: tokenAddress as `0x${string}`,
-            abi: ERC20_ABI,
-            client: publicClient,
-          });
+      withTelemetry(
+        "get-erc20-balance",
+        async ({ tokenAddress, walletAddress }) => {
+          try {
+            const contract = getContract({
+              address: tokenAddress as `0x${string}`,
+              abi: ERC20_ABI,
+              client: publicClient,
+            });
 
-          const [balance, decimals, symbol, name] = await Promise.all([
-            contract.read.balanceOf([walletAddress as `0x${string}`]),
-            contract.read.decimals(),
-            contract.read.symbol(),
-            contract.read.name(),
-          ]);
+            const [balance, decimals, symbol, name] = await Promise.all([
+              contract.read.balanceOf([walletAddress as `0x${string}`]),
+              contract.read.decimals(),
+              contract.read.symbol(),
+              contract.read.name(),
+            ]);
 
-          const formattedBalance = formatUnits(
-            balance as bigint,
-            decimals as number
-          );
+            const formattedBalance = formatUnits(
+              balance as bigint,
+              decimals as number
+            );
 
-          return {
-            content: [
-              {
-                type: "text",
-                text: `Token: ${name} (${symbol})\nBalance for ${walletAddress}: ${formattedBalance} ${symbol}`,
-              },
-            ],
-          };
-        } catch (error) {
-          console.error("Error getting ERC20 balance:", error);
-          return {
-            content: [
-              {
-                type: "text",
-                text: `Failed to retrieve ERC20 token balance. Error: ${
-                  error instanceof Error ? error.message : String(error)
-                }`,
-              },
-            ],
-          };
+            return {
+              content: [
+                {
+                  type: "text",
+                  text: `Token: ${name} (${symbol})\nBalance for ${walletAddress}: ${formattedBalance} ${symbol}`,
+                },
+              ],
+            };
+          } catch (error) {
+            console.error("Error getting balance:", error);
+            return {
+              content: [
+                {
+                  type: "text",
+                  text: `Failed to retrieve balance for address: ${walletAddress}. Error: ${
+                    error instanceof Error ? error.message : String(error)
+                  }`,
+                },
+              ],
+            };
+          }
         }
-      }
+      )
     );
     server.tool(
       "get-block",
@@ -175,7 +185,7 @@ export const mcpHandler = initializeMcpApiHandler(
           .describe("Block number or 'latest' for most recent block"),
       },
 
-      async ({ blockNumber }) => {
+      withTelemetry("get-block", async ({ blockNumber }) => {
         try {
           const blockTag =
             typeof blockNumber === "string"
@@ -209,7 +219,6 @@ export const mcpHandler = initializeMcpApiHandler(
             ],
           };
         } catch (error) {
-          console.error("Error getting block:", error);
           return {
             content: [
               {
@@ -221,7 +230,7 @@ export const mcpHandler = initializeMcpApiHandler(
             ],
           };
         }
-      }
+      })
     );
     server.tool(
       "get-tx-receipt",
@@ -229,7 +238,7 @@ export const mcpHandler = initializeMcpApiHandler(
       {
         txHash: z.string().describe("Transaction hash to get receipt for"),
       },
-      async ({ txHash }) => {
+      withTelemetry("get-tx-receipt", async ({ txHash }) => {
         try {
           const receipt = await publicClient.getTransactionReceipt({
             hash: txHash as `0x${string}`,
@@ -268,7 +277,6 @@ export const mcpHandler = initializeMcpApiHandler(
             ],
           };
         } catch (error) {
-          console.error("Error getting transaction receipt:", error);
           return {
             content: [
               {
@@ -280,7 +288,7 @@ export const mcpHandler = initializeMcpApiHandler(
             ],
           };
         }
-      }
+      })
     );
     server.tool(
       "get-contract-source",
@@ -288,7 +296,7 @@ export const mcpHandler = initializeMcpApiHandler(
       {
         address: z.string().describe("Contract address to get source code for"),
       },
-      async ({ address }) => {
+      withTelemetry("get-contract-source", async ({ address }) => {
         try {
           const response = await fetch(
             `https://api.blockvision.org/v2/monad/contract/source/code?address=${address}`,
@@ -321,7 +329,6 @@ export const mcpHandler = initializeMcpApiHandler(
             ],
           };
         } catch (error) {
-          console.error("Error fetching contract source:", error);
           return {
             content: [
               {
@@ -333,13 +340,13 @@ export const mcpHandler = initializeMcpApiHandler(
             ],
           };
         }
-      }
+      })
     );
     server.tool(
       "estimate-priority-fee",
       "Estimate the current priority fee on Monad testnet",
       {},
-      async () => {
+      withTelemetry("estimate-priority-fee", async () => {
         try {
           const [gasPrice, maxPriorityFee] = await Promise.all([
             publicClient.getGasPrice(),
@@ -355,7 +362,6 @@ export const mcpHandler = initializeMcpApiHandler(
             ],
           };
         } catch (error) {
-          console.error("Error estimating gas price:", error);
           return {
             content: [
               {
@@ -367,14 +373,14 @@ export const mcpHandler = initializeMcpApiHandler(
             ],
           };
         }
-      }
+      })
     );
 
     server.tool(
       "monad-docs",
       "Fetch the index of Monad developer documentation. This tool returns a list of available Monad documentation pages with their URLs. To read the content of a specific page, use the 'read-monad-docs' tool with the provided URL. Always call this tool first to discover available documentation links before attempting to read any documentation page.",
       {},
-      async () => {
+      withTelemetry("monad-docs", async () => {
         try {
           const response = await fetch("https://docs.monad.xyz/llms.txt");
           if (!response.ok) {
@@ -417,7 +423,6 @@ export const mcpHandler = initializeMcpApiHandler(
             ],
           };
         } catch (error) {
-          console.error("Error fetching Monad docs:", error);
           return {
             content: [
               {
@@ -429,7 +434,7 @@ export const mcpHandler = initializeMcpApiHandler(
             ],
           };
         }
-      }
+      })
     );
     server.tool(
       "read-monad-docs",
@@ -440,7 +445,7 @@ export const mcpHandler = initializeMcpApiHandler(
           .url()
           .describe("The full URL of the Monad documentation page to fetch"),
       },
-      async ({ url }) => {
+      withTelemetry("read-monad-docs", async ({ url }) => {
         try {
           // Helper function to clean HTML content
           function cleanDocContent(html: string): string {
@@ -575,7 +580,6 @@ export const mcpHandler = initializeMcpApiHandler(
             ],
           };
         } catch (error) {
-          console.error("Error fetching Monad documentation:", error);
           return {
             content: [
               {
@@ -587,13 +591,13 @@ export const mcpHandler = initializeMcpApiHandler(
             ],
           };
         }
-      }
+      })
     );
     server.tool(
       "get-monad-constants",
       "Get Monad testnet network information and contract addresses",
       {},
-      async () => {
+      withTelemetry("get-monad-constants", async () => {
         const constants = {
           network: {
             name: "Monad Testnet",
@@ -640,7 +644,7 @@ export const mcpHandler = initializeMcpApiHandler(
             },
           ],
         };
-      }
+      })
     );
     server.tool(
       "convert",
@@ -660,129 +664,116 @@ export const mcpHandler = initializeMcpApiHandler(
           )
           .describe("Array of conversion operations to perform in sequence"),
       },
-      async ({ input, operations }) => {
-        try {
-          server.server.sendLoggingMessage({
-            level: "info",
-            data: { input, operations },
-          });
-          let currentValue: any = input;
+      withTelemetry("convert", async ({ input, operations }) => {
+        server.server.sendLoggingMessage({
+          level: "info",
+          data: { input, operations },
+        });
+        let currentValue: any = input;
 
-          // First convert from input format to initial value
-          // Check input type
-          if (typeof input === "string") {
-            if (isHex(input)) {
-              currentValue = input as Hex;
-            } else if (!isNaN(Number(input))) {
-              currentValue = Number(input);
-            } else {
-              currentValue = input;
-            }
-          } else if (typeof input === "number") {
-            currentValue = input;
+        // First convert from input format to initial value
+        // Check input type
+        if (typeof input === "string") {
+          if (isHex(input)) {
+            currentValue = input as Hex;
+          } else if (!isNaN(Number(input))) {
+            currentValue = Number(input);
           } else {
-            throw new Error("Invalid input type. Expected string or number.");
+            currentValue = input;
           }
-
-          // Process each operation in sequence
-          const results = operations.map((operation) => {
-            try {
-              switch (operation) {
-                case "toHex":
-                  if (typeof currentValue === "string") {
-                    return { operation, result: stringToHex(currentValue) };
-                  }
-                  if (typeof currentValue === "number") {
-                    return { operation, result: numberToHex(currentValue) };
-                  }
-                  if (isHex(currentValue)) {
-                    return { operation, result: currentValue };
-                  }
-                  throw new Error("Cannot convert to hex");
-
-                case "toString":
-                  if (isHex(currentValue)) {
-                    return { operation, result: hexToString(currentValue) };
-                  }
-                  return { operation, result: String(currentValue) };
-
-                case "toNumber":
-                  if (isHex(currentValue)) {
-                    return {
-                      operation,
-                      result: Number(hexToBigInt(currentValue)),
-                    };
-                  }
-                  return { operation, result: Number(currentValue) };
-
-                case "toKeccak256":
-                  if (isHex(currentValue)) {
-                    return { operation, result: toKeccak256(currentValue) };
-                  }
-                  if (typeof currentValue === "string") {
-                    return {
-                      operation,
-                      result: toKeccak256(stringToHex(currentValue)),
-                    };
-                  }
-                  throw new Error("Cannot compute keccak256");
-
-                case "pad32":
-                  if (isHex(currentValue)) {
-                    return { operation, result: pad(currentValue) };
-                  }
-                  throw new Error("Can only pad hex values");
-
-                case "toBigInt":
-                  if (isHex(currentValue)) {
-                    return {
-                      operation,
-                      result: hexToBigInt(currentValue).toString(),
-                    };
-                  }
-                  return { operation, result: BigInt(currentValue).toString() };
-
-                default:
-                  throw new Error(`Unknown operation: ${operation}`);
-              }
-            } catch (error) {
-              return {
-                operation,
-                error: error instanceof Error ? error.message : String(error),
-              };
-            }
-          });
-
-          return {
-            content: [
-              {
-                type: "text",
-                text: JSON.stringify(
-                  {
-                    input: {
-                      value: input,
-                    },
-                    conversions: results,
-                  },
-                  null,
-                  2
-                ),
-              },
-            ],
-          };
-        } catch (error) {
-          return {
-            content: [
-              {
-                type: "text",
-                text: `Conversion error: ${
-                  error instanceof Error ? error.message : String(error)
-                }`,
-              },
-            ],
-          };
+        } else if (typeof input === "number") {
+          currentValue = input;
+        } else {
+          throw new Error("Invalid input type. Expected string or number.");
         }
-      }
+
+        // Process each operation in sequence
+        const results = operations.map((operation) => {
+          try {
+            switch (operation) {
+              case "toHex":
+                if (typeof currentValue === "string") {
+                  return { operation, result: stringToHex(currentValue) };
+                }
+                if (typeof currentValue === "number") {
+                  return { operation, result: numberToHex(currentValue) };
+                }
+                if (isHex(currentValue)) {
+                  return { operation, result: currentValue };
+                }
+                throw new Error("Cannot convert to hex");
+
+              case "toString":
+                if (isHex(currentValue)) {
+                  return { operation, result: hexToString(currentValue) };
+                }
+                return { operation, result: String(currentValue) };
+
+              case "toNumber":
+                if (isHex(currentValue)) {
+                  return {
+                    operation,
+                    result: Number(hexToBigInt(currentValue)),
+                  };
+                }
+                return { operation, result: Number(currentValue) };
+
+              case "toKeccak256":
+                if (isHex(currentValue)) {
+                  return { operation, result: toKeccak256(currentValue) };
+                }
+                if (typeof currentValue === "string") {
+                  return {
+                    operation,
+                    result: toKeccak256(stringToHex(currentValue)),
+                  };
+                }
+                throw new Error("Cannot compute keccak256");
+
+              case "pad32":
+                if (isHex(currentValue)) {
+                  return { operation, result: pad(currentValue) };
+                }
+                throw new Error("Can only pad hex values");
+
+              case "toBigInt":
+                if (isHex(currentValue)) {
+                  return {
+                    operation,
+                    result: hexToBigInt(currentValue).toString(),
+                  };
+                }
+                return { operation, result: BigInt(currentValue).toString() };
+
+              default:
+                throw new Error(`Unknown operation: ${operation}`);
+            }
+          } catch (error) {
+            return {
+              operation,
+              error: error instanceof Error ? error.message : String(error),
+            };
+          }
+        });
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(
+                {
+                  input: {
+                    value: input,
+                  },
+                  conversions: results,
+                },
+                null,
+                2
+              ),
+            },
+          ],
+        };
+      })
     );
     server.tool(
       "decode-calldata",
@@ -800,7 +791,7 @@ export const mcpHandler = initializeMcpApiHandler(
             message: "Either calldata or tx must be provided",
           }),
       },
-      async ({ input }) => {
+      withTelemetry("decode-calldata", async ({ input }) => {
         try {
           let calldata = input.calldata;
 
@@ -838,7 +829,6 @@ export const mcpHandler = initializeMcpApiHandler(
 
           // Get function selector (first 4 bytes / 8 characters after 0x)
           const selector = calldata.slice(0, 10);
-          console.log("selector", selector);
           // Fetch function interface
           const functionInterface = await fetchFunctionInterface({ selector });
 
@@ -901,7 +891,7 @@ export const mcpHandler = initializeMcpApiHandler(
             ],
           };
         }
-      }
+      })
     );
 
     server.tool(
@@ -940,22 +930,25 @@ export const mcpHandler = initializeMcpApiHandler(
           .default([])
           .describe("Function arguments array (e.g., ['0x...'])"),
       },
-      async ({ address, abi, functionName, args }) => {
-        const result = await readContract({
-          address: address as `0x${string}`,
-          abi,
-          functionName,
-          args,
-        });
-        return {
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify(result, null, 2),
-            },
-          ],
-        };
-      }
+      withTelemetry(
+        "readContract",
+        async ({ address, abi, functionName, args }) => {
+          const result = await readContract({
+            address: address as `0x${string}`,
+            abi,
+            functionName,
+            args,
+          });
+          return {
+            content: [
+              {
+                type: "text",
+                text: JSON.stringify(result, null, 2),
+              },
+            ],
+          };
+        }
+      )
     );
 
     server.tool(
@@ -964,7 +957,7 @@ export const mcpHandler = initializeMcpApiHandler(
       {
         address: z.string().describe("Contract address to check (0x...)"),
       },
-      async ({ address }) => {
+      withTelemetry("contract-creation-transaction", async ({ address }) => {
         try {
           const response = await fetch(
             `https://api.blockvision.org/v2/monad/account/internal/transactions?address=${address}&filter=all&limit=1&ascendingOrder=true`,
@@ -1021,7 +1014,6 @@ export const mcpHandler = initializeMcpApiHandler(
             ],
           };
         } catch (error) {
-          console.error("Error fetching contract creation transaction:", error);
           return {
             content: [
               {
@@ -1033,7 +1025,7 @@ export const mcpHandler = initializeMcpApiHandler(
             ],
           };
         }
-      }
+      })
     );
 
     server.tool(
@@ -1142,7 +1134,7 @@ export const mcpHandler = initializeMcpApiHandler(
           })
           .describe("Parameters for the selected Monad RPC method"),
       },
-      async ({ method, params }) => {
+      withTelemetry("monad-rpc", async ({ method, params }) => {
         try {
           // Define required parameters and their custom descriptions for each method
           const methodRequirements: Record<
@@ -1363,7 +1355,6 @@ export const mcpHandler = initializeMcpApiHandler(
             ],
           };
         } catch (error) {
-          console.error(`Error executing ${method}:`, error);
           return {
             content: [
               {
@@ -1375,7 +1366,7 @@ export const mcpHandler = initializeMcpApiHandler(
             ],
           };
         }
-      }
+      })
     );
 
     function serializeValue(value: any): any {
@@ -1435,7 +1426,6 @@ export const mcpHandler = initializeMcpApiHandler(
           data: safeJsonString,
         };
       } catch (error) {
-        console.error(`Error reading contract: ${error}`);
         return {
           success: false,
           error: error instanceof Error ? error.message : String(error),
