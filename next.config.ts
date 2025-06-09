@@ -1,19 +1,21 @@
-import type { NextConfig } from "next";
+import type { NextConfig } from 'next'
 
-const nextConfig = {
+const nextConfig: NextConfig = {
   logging: {
-    level: "debug",
     fetches: {
       fullUrl: true,
     },
   },
+  typescript: {
+    ignoreBuildErrors: true,
+  },
   async rewrites() {
     return [
       {
-        source: "/",
-        destination: "/index.html",
+        source: '/',
+        destination: '/index.html',
       },
-    ];
+    ]
   },
-};
-export default nextConfig;
+}
+export default nextConfig

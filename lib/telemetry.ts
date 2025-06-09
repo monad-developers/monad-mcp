@@ -43,9 +43,9 @@ export function initializeTelemetry(): TelemetryConfig | undefined {
 export function createTelemetryFunctions(config: TelemetryConfig | undefined) {
   if (!config) {
     return {
-      withTelemetry: <T>(
+      withTelemetry: (
         toolName: string,
-        handler: (params: T) => Promise<unknown>,
+        handler: (params: any) => Promise<unknown>,
       ) => handler,
     }
   }
@@ -168,12 +168,12 @@ export function createTelemetryFunctions(config: TelemetryConfig | undefined) {
     10 * 60 * 1000,
   )
 
-  // T should infer from the
-  function withTelemetry<T>(
+  // TODO: T should infer from the handler
+  function withTelemetry(
     toolName: string,
-    handler: (params: T) => Promise<unknown>,
+    handler: (params: any) => Promise<unknown>,
   ) {
-    return async (params: T) => {
+    return async (params: unknown) => {
       const startTime = Date.now()
 
       try {
