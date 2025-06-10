@@ -1,38 +1,34 @@
-import { join } from 'path'
 import {
   http,
+  type Hex,
   createPublicClient,
   formatUnits,
   getContract,
-  stringify,
-} from 'viem'
-import {
-  type Hex,
   hexToBigInt,
   hexToString,
   isHex,
   numberToHex,
   pad,
   stringToHex,
+  stringify,
   keccak256 as toKeccak256,
 } from 'viem'
 import { z } from 'zod'
 import { initializeMcpApiHandler } from '../lib/mcp-api-handler'
 import { createTelemetryFunctions, initializeTelemetry } from '../lib/telemetry'
-import { fetchFunctionInterface } from './commons/decoder'
-
 import { ERC20_ABI, monadTestnet } from './commons/constants'
+import { fetchFunctionInterface } from './commons/decoder'
 import { startHexWith0x } from './commons/utils'
 
 export const mcpHandler = initializeMcpApiHandler(
-  (server) => {
+  (server, geo) => {
     const publicClient = createPublicClient({
       chain: monadTestnet,
       transport: http(),
     })
 
     // Initialize telemetry
-    const telemetryConfig = initializeTelemetry()
+    const telemetryConfig = initializeTelemetry(geo)
     const { withTelemetry } = createTelemetryFunctions(telemetryConfig)
 
     // @ts-expect-error - TODO: infer type of callback instead of ignoring error
@@ -452,15 +448,16 @@ export const mcpHandler = initializeMcpApiHandler(
       withTelemetry('read-monad-docs', async ({ url }) => {
         try {
           // Helper function to clean HTML content
-          function cleanDocContent(html: string): string {
+          function cleanDocContent(docHtml: string): string {
+            let cleanedHtml = docHtml
             // Remove script tags and their content
-            html = html.replace(
+            cleanedHtml = cleanedHtml.replace(
               /<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi,
               '',
             )
 
             // Remove style tags and their content
-            html = html.replace(
+            cleanedHtml = cleanedHtml.replace(
               /<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi,
               '',
             )
@@ -488,18 +485,18 @@ export const mcpHandler = initializeMcpApiHandler(
               `<(${removeElements})[^>]*>[\\s\\S]*?<\\/\\1>`,
               'gi',
             )
-            html = html.replace(removeRegex, '')
+            cleanedHtml = cleanedHtml.replace(removeRegex, '')
 
             // Extract main content (usually in article, main, or div.content)
-            const mainContent = html.match(
+            const mainContent = cleanedHtml.match(
               /<(article|main|div class="content")[^>]*>([\s\S]*?)<\/\1>/i,
             )
             if (mainContent) {
-              html = mainContent[2]
+              cleanedHtml = mainContent[2]
             }
 
             // Convert HTML to markdown-style formatting
-            html = html
+            cleanedHtml = cleanedHtml
               // Headers
               .replace(/<h1[^>]*>(.*?)<\/h1>/gi, '\n# $1\n')
               .replace(/<h2[^>]*>(.*?)<\/h2>/gi, '\n## $1\n')
@@ -539,7 +536,7 @@ export const mcpHandler = initializeMcpApiHandler(
 
             // Clean up the text
             return (
-              html
+              cleanedHtml
                 // Fix HTML entities
                 .replace(/&nbsp;/g, ' ')
                 .replace(/&quot;/g, '"')
@@ -675,14 +672,14 @@ export const mcpHandler = initializeMcpApiHandler(
           level: 'info',
           data: { input, operations },
         })
-        let currentValue: any = input
+        let currentValue: string | number | Hex = input
 
         // First convert from input format to initial value
         // Check input type
         if (typeof input === 'string') {
           if (isHex(input)) {
             currentValue = input as Hex
-          } else if (!isNaN(Number(input))) {
+          } else if (!Number.isNaN(Number(input))) {
             currentValue = Number(input)
           } else {
             currentValue = input
@@ -1291,7 +1288,7 @@ export const mcpHandler = initializeMcpApiHandler(
           }
 
           // Execute the RPC call using the publicClient (configured for Monad)
-          let result
+          let result: unknown
           switch (method) {
             case 'getBalance':
               result = await publicClient.getBalance({
@@ -1380,7 +1377,7 @@ export const mcpHandler = initializeMcpApiHandler(
       }),
     )
 
-    function serializeValue(value: any): any {
+    function serializeValue(value: unknown): unknown {
       // Handle null and undefined
       if (value == null) {
         return value
@@ -1413,9 +1410,9 @@ export const mcpHandler = initializeMcpApiHandler(
       args = [],
     }: {
       address: `0x${string}`
-      abi: any[] // Received ABI
+      abi: Record<string, unknown>[] // Received ABI
       functionName: string
-      args?: any[]
+      args?: unknown[]
     }) {
       try {
         // Create contract instance with received ABI

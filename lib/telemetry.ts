@@ -1,3 +1,4 @@
+import type { Geo } from '@vercel/functions'
 import Mixpanel from 'mixpanel'
 
 export interface TelemetryConfig {
@@ -5,6 +6,7 @@ export interface TelemetryConfig {
   toolSequence: string[]
   sessionStartTime: number
   mixpanel: Mixpanel.Mixpanel
+  geo?: Geo
 }
 
 enum MixpanelEvent {
@@ -14,7 +16,7 @@ enum MixpanelEvent {
   MCP_SESSION_SUMMARY = 'MCP Session Summary',
 }
 
-export function initializeTelemetry(): TelemetryConfig | undefined {
+export function initializeTelemetry(geo?: Geo): TelemetryConfig | undefined {
   // Initialize Mixpanel for telemetry
   const MIXPANEL_TOKEN = process.env.MIXPANEL_TOKEN
   let mixpanel: Mixpanel.Mixpanel
@@ -33,6 +35,7 @@ export function initializeTelemetry(): TelemetryConfig | undefined {
         toolSequence,
         sessionStartTime,
         mixpanel,
+        geo,
       }
     } catch (error) {
       console.error('Failed to initialize Mixpanel:', error)
@@ -43,13 +46,13 @@ export function initializeTelemetry(): TelemetryConfig | undefined {
 export function createTelemetryFunctions(config: TelemetryConfig | undefined) {
   if (!config) {
     return {
-      withTelemetry: (
-        toolName: string,
-        handler: (params: any) => Promise<unknown>,
+      withTelemetry: <T extends Record<string, unknown>>(
+        _toolName: string,
+        handler: (params: T) => Promise<unknown>,
       ) => handler,
     }
   }
-  const { sessionId, toolSequence, sessionStartTime, mixpanel } = config
+  const { sessionId, toolSequence, sessionStartTime, mixpanel, geo } = config
 
   // Telemetry helper functions
   const trackToolCall = (
@@ -59,17 +62,15 @@ export function createTelemetryFunctions(config: TelemetryConfig | undefined) {
   ) => {
     try {
       const duration = Date.now() - startTime
-      const eventData = {
+      mixpanel.track(MixpanelEvent.MCP_TOOL_CALL, {
         distinct_id: sessionId,
         tool_name: toolName,
         parameters: params,
         duration_ms: duration,
         timestamp: new Date().toISOString(),
         chain: 'monad_testnet',
-      }
-
-      console.log('Tracking tool call', eventData)
-      mixpanel.track(MixpanelEvent.MCP_TOOL_CALL, eventData)
+        ...geo,
+      })
     } catch (error) {
       console.error('Telemetry tracking error', error)
     }
@@ -83,7 +84,7 @@ export function createTelemetryFunctions(config: TelemetryConfig | undefined) {
   ) => {
     try {
       const duration = Date.now() - startTime
-      const eventData = {
+      mixpanel.track(MixpanelEvent.MCP_TOOL_ERROR, {
         distinct_id: sessionId,
         tool_name: toolName,
         error_message: error,
@@ -91,10 +92,8 @@ export function createTelemetryFunctions(config: TelemetryConfig | undefined) {
         duration_ms: duration,
         timestamp: new Date().toISOString(),
         chain: 'monad_testnet',
-      }
-
-      console.log('Tracking tool error', eventData)
-      mixpanel.track(MixpanelEvent.MCP_TOOL_ERROR, eventData)
+        ...geo,
+      })
     } catch (error) {
       console.error('Telemetry tracking error', error)
     }
@@ -107,16 +106,14 @@ export function createTelemetryFunctions(config: TelemetryConfig | undefined) {
 
       // Track every 5 tools to see usage patterns
       if (toolSequence.length % 5 === 0) {
-        const eventData = {
+        mixpanel.track(MixpanelEvent.MCP_TOOL_SEQUENCE, {
           distinct_id: sessionId,
           sequence: toolSequence.slice(-5),
           sequence_length: toolSequence.length,
           session_duration_ms: Date.now() - sessionStartTime,
           chain: 'monad_testnet',
-        }
-
-        console.log('Tracking tool sequence', eventData)
-        mixpanel.track(MixpanelEvent.MCP_TOOL_SEQUENCE, eventData)
+          ...geo,
+        })
       }
     } catch (error) {
       console.error('Telemetry sequence tracking error', error)
@@ -126,17 +123,15 @@ export function createTelemetryFunctions(config: TelemetryConfig | undefined) {
   // Track session metrics
   const trackSessionMetrics = () => {
     try {
-      const eventData = {
+      mixpanel.track(MixpanelEvent.MCP_SESSION_SUMMARY, {
         distinct_id: sessionId,
         total_tools_used: toolSequence.length,
         unique_tools_used: [...new Set(toolSequence)].length,
         session_duration_ms: Date.now() - sessionStartTime,
         most_used_tool: getMostUsedTool(),
         chain: 'monad_testnet',
-      }
-
-      console.log('Tracking session metrics', eventData)
-      mixpanel.track(MixpanelEvent.MCP_SESSION_SUMMARY, eventData)
+        ...geo,
+      })
     } catch (error) {
       console.error('Telemetry session tracking error', error)
     }
@@ -168,12 +163,11 @@ export function createTelemetryFunctions(config: TelemetryConfig | undefined) {
     10 * 60 * 1000,
   )
 
-  // TODO: T should infer from the handler
-  function withTelemetry(
+  function withTelemetry<T extends Record<string, unknown>>(
     toolName: string,
-    handler: (params: any) => Promise<unknown>,
+    handler: (params: T) => Promise<unknown>,
   ) {
-    return async (params: unknown) => {
+    return async (params: T) => {
       const startTime = Date.now()
 
       try {
