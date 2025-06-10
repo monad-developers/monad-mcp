@@ -6,9 +6,6 @@ const nextConfig: NextConfig = {
       fullUrl: true,
     },
   },
-  typescript: {
-    ignoreBuildErrors: true,
-  },
   async rewrites() {
     return [
       {
