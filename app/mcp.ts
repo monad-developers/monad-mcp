@@ -1,877 +1,874 @@
-import { z } from "zod";
-import { initializeMcpApiHandler } from "../lib/mcp-api-handler";
+import { join } from 'path'
 import {
+  http,
   createPublicClient,
   formatUnits,
   getContract,
-  http,
   stringify,
-} from "viem";
+} from 'viem'
 import {
-  numberToHex,
+  type Hex,
   hexToBigInt,
-  isHex,
   hexToString,
-  stringToHex,
-  Hex,
-  keccak256 as toKeccak256,
+  isHex,
+  numberToHex,
   pad,
-} from "viem";
-import { fetchFunctionInterface } from "./commons/decoder";
+  stringToHex,
+  keccak256 as toKeccak256,
+} from 'viem'
+import { z } from 'zod'
+import { initializeMcpApiHandler } from '../lib/mcp-api-handler'
+import { createTelemetryFunctions, initializeTelemetry } from '../lib/telemetry'
+import { fetchFunctionInterface } from './commons/decoder'
 
-import { ERC20_ABI, monadTestnet } from "./commons/constants";
-import { startHexWith0x } from "./commons/utils";
+import { ERC20_ABI, monadTestnet } from './commons/constants'
+import { startHexWith0x } from './commons/utils'
 
 export const mcpHandler = initializeMcpApiHandler(
   (server) => {
     const publicClient = createPublicClient({
       chain: monadTestnet,
       transport: http(),
-    });
+    })
 
+    // Initialize telemetry
+    const telemetryConfig = initializeTelemetry()
+    const { withTelemetry } = createTelemetryFunctions(telemetryConfig)
+
+    // @ts-expect-error - TODO: infer type of callback instead of ignoring error
     server.tool(
-      "get-mon-balance",
-      "Get MON balance for an address on Monad testnet",
+      'get-mon-balance',
+      'Get MON balance for an address on Monad testnet',
       {
         address: z
           .string()
-          .describe("Monad testnet address to check balance for"),
+          .describe('Monad testnet address to check balance for'),
       },
-      async ({ address }) => {
+      withTelemetry('get-mon-balance', async ({ address }) => {
         try {
           const balance = await publicClient.getBalance({
             address: address as `0x${string}`,
-          });
+          })
 
           return {
             content: [
               {
-                type: "text",
+                type: 'text',
                 text: `Balance for ${address}: ${formatUnits(balance, 18)} MON`,
               },
             ],
-          };
+          }
         } catch (error) {
-          console.error("Error getting balance:", error);
           return {
             content: [
               {
-                type: "text",
+                type: 'text',
                 text: `Failed to retrieve balance for address: ${address}. Error: ${
                   error instanceof Error ? error.message : String(error)
                 }`,
               },
             ],
-          };
+          }
         }
-      }
-    );
+      }),
+    )
 
+    // @ts-expect-error - TODO: infer type of callback instead of ignoring error
     server.tool(
-      "get-transaction",
-      "Get information about a transaction on Monad testnet",
+      'get-transaction',
+      'Get information about a transaction on Monad testnet',
       {
-        txHash: z.string().describe("Transaction hash to look up"),
+        txHash: z.string().describe('Transaction hash to look up'),
       },
-      async ({ txHash }) => {
+      withTelemetry('get-transaction', async ({ txHash }) => {
         try {
           const tx = await publicClient.getTransaction({
             hash: txHash as `0x${string}`,
-          });
+          })
 
           if (!tx) {
             return {
               content: [
                 {
-                  type: "text",
+                  type: 'text',
                   text: `Transaction not found: ${txHash}`,
                 },
               ],
-            };
+            }
           }
 
           return {
             content: [
               {
-                type: "text",
+                type: 'text',
                 text: stringify(tx, null, 2),
               },
             ],
-          };
+          }
         } catch (error) {
-          console.error("Error getting transaction:", error);
           return {
             content: [
               {
-                type: "text",
+                type: 'text',
                 text: `Failed to retrieve transaction information for hash: ${txHash}. Error: ${
                   error instanceof Error ? error.message : String(error)
                 }`,
               },
             ],
-          };
+          }
         }
-      }
-    );
+      }),
+    )
 
+    // @ts-expect-error - TODO: infer type of callback instead of ignoring error
     server.tool(
-      "get-erc20-balance",
-      "Get ERC20 token balance for an address on Monad testnet",
+      'get-erc20-balance',
+      'Get ERC20 token balance for an address on Monad testnet',
       {
-        tokenAddress: z.string().describe("ERC20 token contract address"),
+        tokenAddress: z.string().describe('ERC20 token contract address'),
         walletAddress: z
           .string()
-          .describe("Wallet address to check balance for"),
+          .describe('Wallet address to check balance for'),
       },
-      async ({ tokenAddress, walletAddress }) => {
-        try {
-          const contract = getContract({
-            address: tokenAddress as `0x${string}`,
-            abi: ERC20_ABI,
-            client: publicClient,
-          });
+      withTelemetry(
+        'get-erc20-balance',
+        async ({ tokenAddress, walletAddress }) => {
+          try {
+            const contract = getContract({
+              address: tokenAddress as `0x${string}`,
+              abi: ERC20_ABI,
+              client: publicClient,
+            })
 
-          const [balance, decimals, symbol, name] = await Promise.all([
-            contract.read.balanceOf([walletAddress as `0x${string}`]),
-            contract.read.decimals(),
-            contract.read.symbol(),
-            contract.read.name(),
-          ]);
+            const [balance, decimals, symbol, name] = await Promise.all([
+              contract.read.balanceOf([walletAddress as `0x${string}`]),
+              contract.read.decimals(),
+              contract.read.symbol(),
+              contract.read.name(),
+            ])
 
-          const formattedBalance = formatUnits(
-            balance as bigint,
-            decimals as number
-          );
+            const formattedBalance = formatUnits(
+              balance as bigint,
+              decimals as number,
+            )
 
-          return {
-            content: [
-              {
-                type: "text",
-                text: `Token: ${name} (${symbol})\nBalance for ${walletAddress}: ${formattedBalance} ${symbol}`,
-              },
-            ],
-          };
-        } catch (error) {
-          console.error("Error getting ERC20 balance:", error);
-          return {
-            content: [
-              {
-                type: "text",
-                text: `Failed to retrieve ERC20 token balance. Error: ${
-                  error instanceof Error ? error.message : String(error)
-                }`,
-              },
-            ],
-          };
-        }
-      }
-    );
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: `Token: ${name} (${symbol})\nBalance for ${walletAddress}: ${formattedBalance} ${symbol}`,
+                },
+              ],
+            }
+          } catch (error) {
+            console.error('Error getting balance:', error)
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: `Failed to retrieve balance for address: ${walletAddress}. Error: ${
+                    error instanceof Error ? error.message : String(error)
+                  }`,
+                },
+              ],
+            }
+          }
+        },
+      ),
+    )
+    // @ts-expect-error - TODO: infer type of callback instead of ignoring error
     server.tool(
-      "get-block",
-      "Get information about a specific block on Monad testnet (latest or by block number)",
+      'get-block',
+      'Get information about a specific block on Monad testnet (latest or by block number)',
       {
         blockNumber: z
           .string()
           .describe("Block number or 'latest' for most recent block"),
       },
 
-      async ({ blockNumber }) => {
+      withTelemetry('get-block', async ({ blockNumber }) => {
         try {
           const blockTag =
-            typeof blockNumber === "string"
-              ? blockNumber === "latest"
-                ? "latest"
+            typeof blockNumber === 'string'
+              ? blockNumber === 'latest'
+                ? 'latest'
                 : BigInt(blockNumber)
-              : BigInt(blockNumber);
+              : BigInt(blockNumber)
           const block = await publicClient.getBlock({
-            blockNumber: blockTag === "latest" ? undefined : blockTag,
-          });
+            blockNumber: blockTag === 'latest' ? undefined : blockTag,
+          })
 
           return {
             content: [
               {
-                type: "text",
+                type: 'text',
                 text: stringify(
                   {
                     hash: block.hash,
                     number: block.number,
                     timestamp: new Date(
-                      Number(block.timestamp) * 1000
+                      Number(block.timestamp) * 1000,
                     ).toISOString(),
                     gasUsed: block.gasUsed.toString(),
                     transactions: block.transactions.length,
                     miner: block.miner,
                   },
                   null,
-                  2
+                  2,
                 ),
               },
             ],
-          };
+          }
         } catch (error) {
-          console.error("Error getting block:", error);
           return {
             content: [
               {
-                type: "text",
+                type: 'text',
                 text: `Failed to retrieve block information. Please provide either 'latest' or a valid block number. Error: ${
                   error instanceof Error ? error.message : String(error)
                 }`,
               },
             ],
-          };
+          }
         }
-      }
-    );
+      }),
+    )
+    // @ts-expect-error - TODO: infer type of callback instead of ignoring error
     server.tool(
-      "get-tx-receipt",
-      "Get detailed transaction receipt from Monad testnet",
+      'get-tx-receipt',
+      'Get detailed transaction receipt from Monad testnet',
       {
-        txHash: z.string().describe("Transaction hash to get receipt for"),
+        txHash: z.string().describe('Transaction hash to get receipt for'),
       },
-      async ({ txHash }) => {
+      withTelemetry('get-tx-receipt', async ({ txHash }) => {
         try {
           const receipt = await publicClient.getTransactionReceipt({
             hash: txHash as `0x${string}`,
-          });
+          })
 
           if (!receipt) {
             return {
               content: [
                 {
-                  type: "text",
+                  type: 'text',
                   text: `No receipt found for transaction: ${txHash}`,
                 },
               ],
-            };
+            }
           }
 
           return {
             content: [
               {
-                type: "text",
+                type: 'text',
                 text: stringify(
                   {
-                    status: receipt.status === "success" ? "Success" : "Failed",
+                    status: receipt.status === 'success' ? 'Success' : 'Failed',
                     blockNumber: receipt.blockNumber.toString(),
                     gasUsed: receipt.gasUsed.toString(),
-                    effectiveGasPrice:
-                      formatUnits(receipt.effectiveGasPrice, 9) + " Gwei",
+                    effectiveGasPrice: `${formatUnits(receipt.effectiveGasPrice, 9)} Gwei`,
                     cumulativeGasUsed: receipt.cumulativeGasUsed.toString(),
                     logs: receipt.logs.length,
                     contractAddress: receipt.contractAddress, // null if not contract creation
                   },
                   null,
-                  2
+                  2,
                 ),
               },
             ],
-          };
+          }
         } catch (error) {
-          console.error("Error getting transaction receipt:", error);
           return {
             content: [
               {
-                type: "text",
+                type: 'text',
                 text: `Failed to retrieve transaction receipt. Error: ${
                   error instanceof Error ? error.message : String(error)
                 }`,
               },
             ],
-          };
+          }
         }
-      }
-    );
+      }),
+    )
+    // @ts-expect-error - TODO: infer type of callback instead of ignoring error
     server.tool(
-      "get-contract-source",
-      "Get the source code for a contract on Monad testnet",
+      'get-contract-source',
+      'Get the source code for a contract on Monad testnet',
       {
-        address: z.string().describe("Contract address to get source code for"),
+        address: z.string().describe('Contract address to get source code for'),
       },
-      async ({ address }) => {
+      withTelemetry('get-contract-source', async ({ address }) => {
         try {
           const response = await fetch(
             `https://api.blockvision.org/v2/monad/contract/source/code?address=${address}`,
             {
-              method: "GET",
+              method: 'GET',
               headers: {
-                "x-api-key": process.env.BLOCK_VISION_API_KEY || "",
-                accept: "application/json",
+                'x-api-key': process.env.BLOCK_VISION_API_KEY || '',
+                accept: 'application/json',
               },
-            }
-          );
+            },
+          )
 
           if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+            throw new Error(`HTTP error! status: ${response.status}`)
           }
 
-          const data = await response.json();
-          if (data.result && "creationByteCode" in data.result) {
-            delete data.result.creationByteCode;
+          const data = await response.json()
+          if (data.result && 'creationByteCode' in data.result) {
+            delete data.result.creationByteCode
           }
-          if (data.result && "sourceCode" in data.result) {
-            delete data.result.sourceCode;
+          if (data.result && 'sourceCode' in data.result) {
+            delete data.result.sourceCode
           }
           return {
             content: [
               {
-                type: "text",
+                type: 'text',
                 text: JSON.stringify(data, null, 2),
               },
             ],
-          };
+          }
         } catch (error) {
-          console.error("Error fetching contract source:", error);
           return {
             content: [
               {
-                type: "text",
+                type: 'text',
                 text: `Failed to retrieve contract source for address: ${address}. Error: ${
                   error instanceof Error ? error.message : String(error)
                 }`,
               },
             ],
-          };
+          }
         }
-      }
-    );
+      }),
+    )
+    // @ts-expect-error - TODO: infer type of callback instead of ignoring error
     server.tool(
-      "estimate-priority-fee",
-      "Estimate the current priority fee on Monad testnet",
+      'estimate-priority-fee',
+      'Estimate the current priority fee on Monad testnet',
       {},
-      async () => {
+      withTelemetry('estimate-priority-fee', async () => {
         try {
           const [gasPrice, maxPriorityFee] = await Promise.all([
             publicClient.getGasPrice(),
             publicClient.estimateMaxPriorityFeePerGas(),
-          ]);
+          ])
 
           return {
             content: [
               {
-                type: "text",
+                type: 'text',
                 text: `Current estimated gas price: ${gasPrice} gwei\nMax priority fee: ${maxPriorityFee} gwei`,
               },
             ],
-          };
+          }
         } catch (error) {
-          console.error("Error estimating gas price:", error);
           return {
             content: [
               {
-                type: "text",
+                type: 'text',
                 text: `Failed to estimate gas price. Error: ${
                   error instanceof Error ? error.message : String(error)
                 }`,
               },
             ],
-          };
+          }
         }
-      }
-    );
+      }),
+    )
 
+    // @ts-expect-error - TODO: infer type of callback instead of ignoring error
     server.tool(
-      "monad-docs",
+      'monad-docs',
       "Fetch the index of Monad developer documentation. This tool returns a list of available Monad documentation pages with their URLs. To read the content of a specific page, use the 'read-monad-docs' tool with the provided URL. Always call this tool first to discover available documentation links before attempting to read any documentation page.",
       {},
-      async () => {
+      withTelemetry('monad-docs', async () => {
         try {
-          const response = await fetch("https://docs.monad.xyz/llms.txt");
+          const response = await fetch('https://docs.monad.xyz/llms.txt')
           if (!response.ok) {
             return {
               content: [
                 {
-                  type: "text",
+                  type: 'text',
                   text: `Error fetching Monad docs: ${response.status}`,
                 },
               ],
-            };
+            }
           }
-          const text = await response.text();
+          const text = await response.text()
           // Add base URL to links
-          const baseUrl = "https://docs.monad.xyz/";
+          const baseUrl = 'https://docs.monad.xyz/'
           const processedText = text.replace(
             /\[([^\]]+)\]\(([^)]+)\)/g,
             (match, title, path) => {
-              return `[${title}](${baseUrl}${path})`;
-            }
-          );
+              return `[${title}](${baseUrl}${path})`
+            },
+          )
           return {
             content: [
               {
-                type: "text",
+                type: 'text',
                 text: [
-                  "# Monad Documentation Index",
-                  "",
-                  "⚠️ IMPORTANT: This is only an index of available documentation. To read any document:",
-                  "1. Find the document you want from the list below",
+                  '# Monad Documentation Index',
+                  '',
+                  '⚠️ IMPORTANT: This is only an index of available documentation. To read any document:',
+                  '1. Find the document you want from the list below',
                   "2. Use the 'read-monad-docs' tool with the full URL to read its contents",
-                  "",
-                  "Available Documentation Links:",
-                  "",
+                  '',
+                  'Available Documentation Links:',
+                  '',
 
-                  processedText +
-                    "Now use the 'read-monad-docs' tool with the full URL to read its contents",
-                ].join("\n"),
+                  `${processedText}Now use the 'read-monad-docs' tool with the full URL to read its contents`,
+                ].join('\n'),
               },
             ],
-          };
+          }
         } catch (error) {
-          console.error("Error fetching Monad docs:", error);
           return {
             content: [
               {
-                type: "text",
+                type: 'text',
                 text: `Error fetching Monad docs: ${
                   error instanceof Error ? error.message : String(error)
                 }`,
               },
             ],
-          };
+          }
         }
-      }
-    );
+      }),
+    )
+    // @ts-expect-error - TODO: infer type of callback instead of ignoring error
     server.tool(
-      "read-monad-docs",
+      'read-monad-docs',
       "Don't use before Monad docs tool, use Monad docs tool first. Fetch and read the contents of a specific Monad documentation page. This should be used after the monad-docs tool to fetch the actual data.",
       {
         url: z
           .string()
           .url()
-          .describe("The full URL of the Monad documentation page to fetch"),
+          .describe('The full URL of the Monad documentation page to fetch'),
       },
-      async ({ url }) => {
+      withTelemetry('read-monad-docs', async ({ url }) => {
         try {
           // Helper function to clean HTML content
           function cleanDocContent(html: string): string {
             // Remove script tags and their content
             html = html.replace(
               /<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi,
-              ""
-            );
+              '',
+            )
 
             // Remove style tags and their content
             html = html.replace(
               /<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi,
-              ""
-            );
+              '',
+            )
 
             // Remove navigation, header, footer, and other non-content elements
             const removeElements = [
-              "nav",
-              "header",
-              "footer",
-              "aside",
-              "meta",
-              "link",
-              "button",
-              "form",
-              ".navigation",
-              ".sidebar",
-              ".menu",
-              ".header",
-              ".footer",
-              ".nav",
-              ".toolbar",
-            ].join("|");
+              'nav',
+              'header',
+              'footer',
+              'aside',
+              'meta',
+              'link',
+              'button',
+              'form',
+              '.navigation',
+              '.sidebar',
+              '.menu',
+              '.header',
+              '.footer',
+              '.nav',
+              '.toolbar',
+            ].join('|')
 
             const removeRegex = new RegExp(
               `<(${removeElements})[^>]*>[\\s\\S]*?<\\/\\1>`,
-              "gi"
-            );
-            html = html.replace(removeRegex, "");
+              'gi',
+            )
+            html = html.replace(removeRegex, '')
 
             // Extract main content (usually in article, main, or div.content)
             const mainContent = html.match(
-              /<(article|main|div class="content")[^>]*>([\s\S]*?)<\/\1>/i
-            );
+              /<(article|main|div class="content")[^>]*>([\s\S]*?)<\/\1>/i,
+            )
             if (mainContent) {
-              html = mainContent[2];
+              html = mainContent[2]
             }
 
             // Convert HTML to markdown-style formatting
             html = html
               // Headers
-              .replace(/<h1[^>]*>(.*?)<\/h1>/gi, "\n# $1\n")
-              .replace(/<h2[^>]*>(.*?)<\/h2>/gi, "\n## $1\n")
-              .replace(/<h3[^>]*>(.*?)<\/h3>/gi, "\n### $1\n")
-              .replace(/<h4[^>]*>(.*?)<\/h4>/gi, "\n#### $1\n")
+              .replace(/<h1[^>]*>(.*?)<\/h1>/gi, '\n# $1\n')
+              .replace(/<h2[^>]*>(.*?)<\/h2>/gi, '\n## $1\n')
+              .replace(/<h3[^>]*>(.*?)<\/h3>/gi, '\n### $1\n')
+              .replace(/<h4[^>]*>(.*?)<\/h4>/gi, '\n#### $1\n')
 
               // Code blocks
               .replace(
                 /<pre[^>]*><code[^>]*>([\s\S]*?)<\/code><\/pre>/gi,
-                "\n```\n$1\n```\n"
+                '\n```\n$1\n```\n',
               )
-              .replace(/<code[^>]*>(.*?)<\/code>/gi, "`$1`")
+              .replace(/<code[^>]*>(.*?)<\/code>/gi, '`$1`')
 
               // Lists
-              .replace(/<ul[^>]*>([\s\S]*?)<\/ul>/gi, "\n$1\n")
-              .replace(/<ol[^>]*>([\s\S]*?)<\/ol>/gi, "\n$1\n")
-              .replace(/<li[^>]*>(.*?)<\/li>/gi, "• $1\n")
+              .replace(/<ul[^>]*>([\s\S]*?)<\/ul>/gi, '\n$1\n')
+              .replace(/<ol[^>]*>([\s\S]*?)<\/ol>/gi, '\n$1\n')
+              .replace(/<li[^>]*>(.*?)<\/li>/gi, '• $1\n')
 
               // Tables
               .replace(/<table[^>]*>([\s\S]*?)<\/table>/gi, (match) => {
                 return match
-                  .replace(/<tr[^>]*>([\s\S]*?)<\/tr>/gi, "$1\n")
-                  .replace(/<th[^>]*>(.*?)<\/th>/gi, "| $1 ")
-                  .replace(/<td[^>]*>(.*?)<\/td>/gi, "| $1 ")
-                  .replace(/\n/g, " |\n");
+                  .replace(/<tr[^>]*>([\s\S]*?)<\/tr>/gi, '$1\n')
+                  .replace(/<th[^>]*>(.*?)<\/th>/gi, '| $1 ')
+                  .replace(/<td[^>]*>(.*?)<\/td>/gi, '| $1 ')
+                  .replace(/\n/g, ' |\n')
               })
 
               // Links
-              .replace(/<a[^>]*href="([^"]*)"[^>]*>(.*?)<\/a>/gi, "[$2]($1)")
+              .replace(/<a[^>]*href="([^"]*)"[^>]*>(.*?)<\/a>/gi, '[$2]($1)')
 
               // Paragraphs and line breaks
-              .replace(/<p[^>]*>(.*?)<\/p>/gi, "\n$1\n")
-              .replace(/<br\s*\/?>/gi, "\n")
+              .replace(/<p[^>]*>(.*?)<\/p>/gi, '\n$1\n')
+              .replace(/<br\s*\/?>/gi, '\n')
 
               // Remove remaining HTML tags
-              .replace(/<[^>]+>/g, "");
+              .replace(/<[^>]+>/g, '')
 
             // Clean up the text
             return (
               html
                 // Fix HTML entities
-                .replace(/&nbsp;/g, " ")
+                .replace(/&nbsp;/g, ' ')
                 .replace(/&quot;/g, '"')
-                .replace(/&amp;/g, "&")
-                .replace(/&lt;/g, "<")
-                .replace(/&gt;/g, ">")
+                .replace(/&amp;/g, '&')
+                .replace(/&lt;/g, '<')
+                .replace(/&gt;/g, '>')
                 // Fix spacing
-                .replace(/\n\s*\n\s*\n/g, "\n\n")
-                .replace(/^\s+|\s+$/g, "")
+                .replace(/\n\s*\n\s*\n/g, '\n\n')
+                .replace(/^\s+|\s+$/g, '')
                 // Fix code block formatting
-                .replace(/```\n\s*```/g, "")
-                .replace(/```\n\n/g, "```\n")
+                .replace(/```\n\s*```/g, '')
+                .replace(/```\n\n/g, '```\n')
                 // Add spacing around headers
-                .replace(/(\n#{1,6} .*)\n(?=\S)/g, "$1\n\n")
-            );
+                .replace(/(\n#{1,6} .*)\n(?=\S)/g, '$1\n\n')
+            )
           }
 
-          const response = await fetch(url);
+          const response = await fetch(url)
           if (!response.ok) {
             return {
               content: [
                 {
-                  type: "text",
+                  type: 'text',
                   text: `Error fetching Monad documentation: ${response.status}`,
                 },
               ],
-            };
+            }
           }
 
-          const rawText = await response.text();
-          const cleanedContent = cleanDocContent(rawText);
+          const rawText = await response.text()
+          const cleanedContent = cleanDocContent(rawText)
 
           return {
             content: [
               {
-                type: "text",
+                type: 'text',
                 text: `# ${
-                  url.split("/").pop()?.replace(/-/g, " ").toUpperCase() ||
-                  "Monad Documentation"
+                  url.split('/').pop()?.replace(/-/g, ' ').toUpperCase() ||
+                  'Monad Documentation'
                 }\n\n${cleanedContent}`,
               },
             ],
-          };
+          }
         } catch (error) {
-          console.error("Error fetching Monad documentation:", error);
           return {
             content: [
               {
-                type: "text",
+                type: 'text',
                 text: `Error fetching Monad documentation: ${
                   error instanceof Error ? error.message : String(error)
                 }`,
               },
             ],
-          };
+          }
         }
-      }
-    );
+      }),
+    )
+    // @ts-expect-error - TODO: infer type of callback instead of ignoring error
     server.tool(
-      "get-monad-constants",
-      "Get Monad testnet network information and contract addresses",
+      'get-monad-constants',
+      'Get Monad testnet network information and contract addresses',
       {},
-      async () => {
+      withTelemetry('get-monad-constants', async () => {
         const constants = {
           network: {
-            name: "Monad Testnet",
+            name: 'Monad Testnet',
             chainId: 10143,
             decimals: 18,
-            symbol: "MON",
-            rpc: "https://testnet-rpc.monad.xyz",
-            explorer: "https://testnet.monadexplorer.com",
+            symbol: 'MON',
+            rpc: 'https://testnet-rpc.monad.xyz',
+            explorer: 'https://testnet.monadexplorer.com',
           },
           contracts: {
-            CreateX: "0xba5Ed099633D3B313e4D5F7bdc1305d3c28ba5Ed",
+            CreateX: '0xba5Ed099633D3B313e4D5F7bdc1305d3c28ba5Ed',
             FoundryDeterministicDeployer:
-              "0x4e59b44847b379578588920ca78fbf26c0b4956c",
-            EntryPointV6: "0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789",
-            EntryPointV7: "0x0000000071727De22E5E9d8BAf0edAc6f37da032",
-            Multicall3: "0xcA11bde05977b3631167028862bE2a173976CA11",
-            Permit2: "0x000000000022d473030f116ddee9f6b43ac78ba3",
-            SafeSingletonFactory: "0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7",
-            UniswapV2Factory: "0x733e88f248b742db6c14c0b1713af5ad7fdd59d0",
-            UniswapV3Factory: "0x961235a9020b05c44df1026d956d1f4d78014276",
-            UniswapV2Router02: "0xfb8e1c3b833f9e67a71c859a132cf783b645e436",
-            UniversalRouter: "0x3ae6d8a282d67893e17aa70ebffb33ee5aa65893",
-            WrappedMonad: "0x760AfE86e5de5fa0Ee542fc7B7B713e1c5425701",
+              '0x4e59b44847b379578588920ca78fbf26c0b4956c',
+            EntryPointV6: '0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789',
+            EntryPointV7: '0x0000000071727De22E5E9d8BAf0edAc6f37da032',
+            Multicall3: '0xcA11bde05977b3631167028862bE2a173976CA11',
+            Permit2: '0x000000000022d473030f116ddee9f6b43ac78ba3',
+            SafeSingletonFactory: '0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7',
+            UniswapV2Factory: '0x733e88f248b742db6c14c0b1713af5ad7fdd59d0',
+            UniswapV3Factory: '0x961235a9020b05c44df1026d956d1f4d78014276',
+            UniswapV2Router02: '0xfb8e1c3b833f9e67a71c859a132cf783b645e436',
+            UniversalRouter: '0x3ae6d8a282d67893e17aa70ebffb33ee5aa65893',
+            WrappedMonad: '0x760AfE86e5de5fa0Ee542fc7B7B713e1c5425701',
           },
           tokens: {
-            USDC: "0xf817257fed379853cDe0fa4F97AB987181B1E5Ea",
-            USDT: "0x88b8E2161DEDC77EF4ab7585569D2415a1C1055D",
-            WBTC: "0xcf5a6076cfa32686c0Df13aBaDa2b40dec133F1d",
-            WETH: "0xB5a30b0FDc5EA94A52fDc42e3E9760Cb8449Fb37",
-            WSOL: "0x5387C85A4965769f6B0Df430638a1388493486F1",
+            USDC: '0xf817257fed379853cDe0fa4F97AB987181B1E5Ea',
+            USDT: '0x88b8E2161DEDC77EF4ab7585569D2415a1C1055D',
+            WBTC: '0xcf5a6076cfa32686c0Df13aBaDa2b40dec133F1d',
+            WETH: '0xB5a30b0FDc5EA94A52fDc42e3E9760Cb8449Fb37',
+            WSOL: '0x5387C85A4965769f6B0Df430638a1388493486F1',
           },
           links: {
-            testnetHub: "https://testnet.monad.xyz",
-            ecosystem: "https://www.monad.xyz/ecosystem",
-            networkVisualization: "https://gmonads.com",
+            testnetHub: 'https://testnet.monad.xyz',
+            ecosystem: 'https://www.monad.xyz/ecosystem',
+            networkVisualization: 'https://gmonads.com',
           },
-        };
+        }
 
         return {
           content: [
             {
-              type: "text",
+              type: 'text',
               text: JSON.stringify(constants, null, 2),
             },
           ],
-        };
-      }
-    );
+        }
+      }),
+    )
+    // @ts-expect-error - TODO: infer type of callback instead of ignoring error
     server.tool(
-      "convert",
-      "Convert between different data formats (hex, string, number, keccak256)",
+      'convert',
+      'Convert between different data formats (hex, string, number, keccak256)',
       {
-        input: z.string().describe("Input value to convert"),
+        input: z.string().describe('Input value to convert'),
         operations: z
           .array(
             z.enum([
-              "toHex",
-              "toString",
-              "toNumber",
-              "toKeccak256",
-              "pad32",
-              "toBigInt",
-            ])
+              'toHex',
+              'toString',
+              'toNumber',
+              'toKeccak256',
+              'pad32',
+              'toBigInt',
+            ]),
           )
-          .describe("Array of conversion operations to perform in sequence"),
+          .describe('Array of conversion operations to perform in sequence'),
       },
-      async ({ input, operations }) => {
-        try {
-          server.server.sendLoggingMessage({
-            level: "info",
-            data: { input, operations },
-          });
-          let currentValue: any = input;
+      withTelemetry('convert', async ({ input, operations }) => {
+        server.server.sendLoggingMessage({
+          level: 'info',
+          data: { input, operations },
+        })
+        let currentValue: any = input
 
-          // First convert from input format to initial value
-          // Check input type
-          if (typeof input === "string") {
-            if (isHex(input)) {
-              currentValue = input as Hex;
-            } else if (!isNaN(Number(input))) {
-              currentValue = Number(input);
-            } else {
-              currentValue = input;
-            }
-          } else if (typeof input === "number") {
-            currentValue = input;
+        // First convert from input format to initial value
+        // Check input type
+        if (typeof input === 'string') {
+          if (isHex(input)) {
+            currentValue = input as Hex
+          } else if (!isNaN(Number(input))) {
+            currentValue = Number(input)
           } else {
-            throw new Error("Invalid input type. Expected string or number.");
+            currentValue = input
           }
-
-          // Process each operation in sequence
-          const results = operations.map((operation) => {
-            try {
-              switch (operation) {
-                case "toHex":
-                  if (typeof currentValue === "string") {
-                    return { operation, result: stringToHex(currentValue) };
-                  }
-                  if (typeof currentValue === "number") {
-                    return { operation, result: numberToHex(currentValue) };
-                  }
-                  if (isHex(currentValue)) {
-                    return { operation, result: currentValue };
-                  }
-                  throw new Error("Cannot convert to hex");
-
-                case "toString":
-                  if (isHex(currentValue)) {
-                    return { operation, result: hexToString(currentValue) };
-                  }
-                  return { operation, result: String(currentValue) };
-
-                case "toNumber":
-                  if (isHex(currentValue)) {
-                    return {
-                      operation,
-                      result: Number(hexToBigInt(currentValue)),
-                    };
-                  }
-                  return { operation, result: Number(currentValue) };
-
-                case "toKeccak256":
-                  if (isHex(currentValue)) {
-                    return { operation, result: toKeccak256(currentValue) };
-                  }
-                  if (typeof currentValue === "string") {
-                    return {
-                      operation,
-                      result: toKeccak256(stringToHex(currentValue)),
-                    };
-                  }
-                  throw new Error("Cannot compute keccak256");
-
-                case "pad32":
-                  if (isHex(currentValue)) {
-                    return { operation, result: pad(currentValue) };
-                  }
-                  throw new Error("Can only pad hex values");
-
-                case "toBigInt":
-                  if (isHex(currentValue)) {
-                    return {
-                      operation,
-                      result: hexToBigInt(currentValue).toString(),
-                    };
-                  }
-                  return { operation, result: BigInt(currentValue).toString() };
-
-                default:
-                  throw new Error(`Unknown operation: ${operation}`);
-              }
-            } catch (error) {
-              return {
-                operation,
-                error: error instanceof Error ? error.message : String(error),
-              };
-            }
-          });
-
-          return {
-            content: [
-              {
-                type: "text",
-                text: JSON.stringify(
-                  {
-                    input: {
-                      value: input,
-                    },
-                    conversions: results,
-                  },
-                  null,
-                  2
-                ),
-              },
-            ],
-          };
-        } catch (error) {
-          return {
-            content: [
-              {
-                type: "text",
-                text: `Conversion error: ${
-                  error instanceof Error ? error.message : String(error)
-                }`,
-              },
-            ],
-          };
+        } else if (typeof input === 'number') {
+          currentValue = input
+        } else {
+          throw new Error('Invalid input type. Expected string or number.')
         }
-      }
-    );
+
+        // Process each operation in sequence
+        const results = operations.map((operation: unknown) => {
+          try {
+            switch (operation) {
+              case 'toHex':
+                if (typeof currentValue === 'string') {
+                  return { operation, result: stringToHex(currentValue) }
+                }
+                if (typeof currentValue === 'number') {
+                  return { operation, result: numberToHex(currentValue) }
+                }
+                if (isHex(currentValue)) {
+                  return { operation, result: currentValue }
+                }
+                throw new Error('Cannot convert to hex')
+
+              case 'toString':
+                if (isHex(currentValue)) {
+                  return { operation, result: hexToString(currentValue) }
+                }
+                return { operation, result: String(currentValue) }
+
+              case 'toNumber':
+                if (isHex(currentValue)) {
+                  return {
+                    operation,
+                    result: Number(hexToBigInt(currentValue)),
+                  }
+                }
+                return { operation, result: Number(currentValue) }
+
+              case 'toKeccak256':
+                if (isHex(currentValue)) {
+                  return { operation, result: toKeccak256(currentValue) }
+                }
+                if (typeof currentValue === 'string') {
+                  return {
+                    operation,
+                    result: toKeccak256(stringToHex(currentValue)),
+                  }
+                }
+                throw new Error('Cannot compute keccak256')
+
+              case 'pad32':
+                if (isHex(currentValue)) {
+                  return { operation, result: pad(currentValue) }
+                }
+                throw new Error('Can only pad hex values')
+
+              case 'toBigInt':
+                if (isHex(currentValue)) {
+                  return {
+                    operation,
+                    result: hexToBigInt(currentValue).toString(),
+                  }
+                }
+                return { operation, result: BigInt(currentValue).toString() }
+
+              default:
+                throw new Error(`Unknown operation: ${operation}`)
+            }
+          } catch (error) {
+            return {
+              operation,
+              error: error instanceof Error ? error.message : String(error),
+            }
+          }
+        })
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(
+                {
+                  input: {
+                    value: input,
+                  },
+                  conversions: results,
+                },
+                null,
+                2,
+              ),
+            },
+          ],
+        }
+      }),
+    )
+    // @ts-expect-error - TODO: infer type of callback instead of ignoring error
     server.tool(
-      "decode-calldata",
-      "Decode Ethereum transaction calldata and get function information",
+      'decode-calldata',
+      'Decode Ethereum transaction calldata and get function information',
       {
         input: z
           .object({
-            calldata: z.string().optional().describe("Raw calldata to decode"),
+            calldata: z.string().optional().describe('Raw calldata to decode'),
             tx: z
               .string()
               .optional()
-              .describe("Transaction hash or explorer URL"),
+              .describe('Transaction hash or explorer URL'),
           })
           .refine((data) => data.calldata || data.tx, {
-            message: "Either calldata or tx must be provided",
+            message: 'Either calldata or tx must be provided',
           }),
       },
-      async ({ input }) => {
+      withTelemetry('decode-calldata', async ({ input }) => {
         try {
-          let calldata = input.calldata;
+          let calldata = input.calldata
 
           // If transaction hash/URL is provided, fetch the calldata
           if (input.tx) {
             try {
-              let txHash: string;
+              let txHash: string
               // Check if input is a full transaction hash
               if (/^0x([A-Fa-f0-9]{64})$/.test(input.tx)) {
-                txHash = input.tx;
+                txHash = input.tx
               } else {
-                txHash = input.tx.split("/").pop()!;
+                txHash = input.tx.split('/').pop()!
               }
 
               const transaction = await publicClient.getTransaction({
                 hash: txHash as Hex,
-              });
+              })
 
-              calldata = transaction.input;
+              calldata = transaction.input
             } catch (error) {
               throw new Error(
                 `Failed to fetch transaction data: ${
                   error instanceof Error ? error.message : String(error)
-                }`
-              );
+                }`,
+              )
             }
           }
 
           if (!calldata) {
-            throw new Error("No calldata available to decode");
+            throw new Error('No calldata available to decode')
           }
 
           // Ensure calldata starts with 0x
-          calldata = startHexWith0x(calldata);
+          calldata = startHexWith0x(calldata)
 
           // Get function selector (first 4 bytes / 8 characters after 0x)
-          const selector = calldata.slice(0, 10);
-          console.log("selector", selector);
+          const selector = calldata.slice(0, 10)
           // Fetch function interface
-          const functionInterface = await fetchFunctionInterface({ selector });
+          const functionInterface = await fetchFunctionInterface({ selector })
 
           if (!functionInterface) {
             return {
               content: [
                 {
-                  type: "text",
+                  type: 'text',
                   text: JSON.stringify(
                     {
                       selector,
-                      status: "unknown_function",
+                      status: 'unknown_function',
                       message:
-                        "Could not find matching function signature for this selector",
+                        'Could not find matching function signature for this selector',
                     },
                     null,
-                    2
+                    2,
                   ),
                 },
               ],
-            };
+            }
           }
 
           // Parse function name and parameters
-          const functionName = functionInterface.split("(")[0];
+          const functionName = functionInterface.split('(')[0]
           const parametersString = functionInterface.slice(
-            functionInterface.indexOf("(")
-          );
+            functionInterface.indexOf('('),
+          )
 
           return {
             content: [
               {
-                type: "text",
+                type: 'text',
                 text: JSON.stringify(
                   {
                     selector,
@@ -881,34 +878,35 @@ export const mcpHandler = initializeMcpApiHandler(
                       parameters: parametersString,
                     },
                     calldata: calldata,
-                    status: "success",
+                    status: 'success',
                   },
                   null,
-                  2
+                  2,
                 ),
               },
             ],
-          };
+          }
         } catch (error) {
           return {
             content: [
               {
-                type: "text",
+                type: 'text',
                 text: `Failed to decode calldata: ${
                   error instanceof Error ? error.message : String(error)
                 }`,
               },
             ],
-          };
+          }
         }
-      }
-    );
+      }),
+    )
 
+    // @ts-expect-error - TODO: infer type of callback instead of ignoring error
     server.tool(
-      "readContract",
+      'readContract',
       "Read data from a smart contract. Format: { address: '0x...', abi: [...], functionName: 'string', args: [] }",
       {
-        address: z.string().describe("Contract address (0x...)"),
+        address: z.string().describe('Contract address (0x...)'),
         abi: z
           .array(
             z.object({
@@ -919,18 +917,18 @@ export const mcpHandler = initializeMcpApiHandler(
                 z.object({
                   name: z.string(),
                   type: z.string(),
-                })
+                }),
               ),
               outputs: z.array(
                 z.object({
                   name: z.string(),
                   type: z.string(),
-                })
+                }),
               ),
-            })
+            }),
           )
           .describe(
-            "Contract ABI array (e.g., [{ name: 'balanceOf', type: 'function', stateMutability: 'view', inputs: [{ name: 'owner', type: 'address' }], outputs: [{ name: 'balance', type: 'uint256' }] }])"
+            "Contract ABI array (e.g., [{ name: 'balanceOf', type: 'function', stateMutability: 'view', inputs: [{ name: 'owner', type: 'address' }], outputs: [{ name: 'balance', type: 'uint256' }] }])",
           ),
         functionName: z
           .string()
@@ -940,47 +938,51 @@ export const mcpHandler = initializeMcpApiHandler(
           .default([])
           .describe("Function arguments array (e.g., ['0x...'])"),
       },
-      async ({ address, abi, functionName, args }) => {
-        const result = await readContract({
-          address: address as `0x${string}`,
-          abi,
-          functionName,
-          args,
-        });
-        return {
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify(result, null, 2),
-            },
-          ],
-        };
-      }
-    );
+      withTelemetry(
+        'readContract',
+        async ({ address, abi, functionName, args }) => {
+          const result = await readContract({
+            address: address as `0x${string}`,
+            abi,
+            functionName,
+            args,
+          })
+          return {
+            content: [
+              {
+                type: 'text',
+                text: JSON.stringify(result, null, 2),
+              },
+            ],
+          }
+        },
+      ),
+    )
 
+    // @ts-expect-error - TODO: infer type of callback instead of ignoring error
     server.tool(
-      "contract-creation-transaction",
-      "Get the creation transaction of a contract",
+      'contract-creation-transaction',
+      'Get the creation transaction of a contract',
       {
-        address: z.string().describe("Contract address to check (0x...)"),
+        address: z.string().describe('Contract address to check (0x...)'),
       },
-      async ({ address }) => {
+      withTelemetry('contract-creation-transaction', async ({ address }) => {
         try {
           const response = await fetch(
             `https://api.blockvision.org/v2/monad/account/internal/transactions?address=${address}&filter=all&limit=1&ascendingOrder=true`,
             {
               headers: {
-                accept: "application/json",
-                "x-api-key": process.env.BLOCK_VISION_API_KEY || "",
+                accept: 'application/json',
+                'x-api-key': process.env.BLOCK_VISION_API_KEY || '',
               },
-            }
-          );
+            },
+          )
 
           if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+            throw new Error(`HTTP error! status: ${response.status}`)
           }
 
-          const data = await response.json();
+          const data = await response.json()
 
           if (
             data.code !== 0 ||
@@ -991,19 +993,19 @@ export const mcpHandler = initializeMcpApiHandler(
             return {
               content: [
                 {
-                  type: "text",
-                  text: "No creation transaction found or error in API response.",
+                  type: 'text',
+                  text: 'No creation transaction found or error in API response.',
                 },
               ],
-            };
+            }
           }
 
-          const creationTx = data.result.data[0];
+          const creationTx = data.result.data[0]
 
           return {
             content: [
               {
-                type: "text",
+                type: 'text',
                 text: JSON.stringify(
                   {
                     creationTransactionHash: creationTx.hash,
@@ -1011,62 +1013,62 @@ export const mcpHandler = initializeMcpApiHandler(
                     contractAddress: creationTx.to,
                     blockNumber: creationTx.blockNumber,
                     timestamp: new Date(
-                      creationTx.timestamp * 1000
+                      creationTx.timestamp * 1000,
                     ).toISOString(),
                   },
                   null,
-                  2
+                  2,
                 ),
               },
             ],
-          };
+          }
         } catch (error) {
-          console.error("Error fetching contract creation transaction:", error);
           return {
             content: [
               {
-                type: "text",
+                type: 'text',
                 text: `Error fetching contract creation transaction: ${
                   error instanceof Error ? error.message : String(error)
                 }`,
               },
             ],
-          };
+          }
         }
-      }
-    );
+      }),
+    )
 
+    // @ts-expect-error - TODO: infer type of callback instead of ignoring error
     server.tool(
-      "monad-rpc",
-      "Execute various Monad blockchain RPC calls with a single tool. Available methods: getBalance, getBlock, getBlockNumber, getTransaction, getTransactionReceipt, getCode, getGasPrice, getLogs, call, estimateGas, debug_getRawBlock",
+      'monad-rpc',
+      'Execute various Monad blockchain RPC calls with a single tool. Available methods: getBalance, getBlock, getBlockNumber, getTransaction, getTransactionReceipt, getCode, getGasPrice, getLogs, call, estimateGas, debug_getRawBlock',
       {
         method: z
           .enum([
-            "getBalance",
-            "getBlock",
-            "getBlockNumber",
-            "getTransaction",
-            "getTransactionReceipt",
-            "getCode",
-            "getGasPrice",
-            "getLogs",
-            "call",
-            "estimateGas",
-            "debug_getRawBlock",
+            'getBalance',
+            'getBlock',
+            'getBlockNumber',
+            'getTransaction',
+            'getTransactionReceipt',
+            'getCode',
+            'getGasPrice',
+            'getLogs',
+            'call',
+            'estimateGas',
+            'debug_getRawBlock',
           ])
           .describe(
-            "Select the Monad RPC method to execute. Available methods and their required parameters:\n" +
-              "- getBalance: Get MON balance for any address\n" +
-              "- getBlock: Get block information by number\n" +
-              "- getBlockNumber: Get latest block number\n" +
-              "- getTransaction: Get detailed transaction information\n" +
-              "- getTransactionReceipt: Get transaction receipt with status and gas usage\n" +
-              "- getCode: Get contract bytecode\n" +
-              "- getGasPrice: Get current gas price on Monad\n" +
-              "- getLogs: Get event logs with filtering\n" +
-              "- call: Execute contract read call\n" +
-              "- estimateGas: Estimate gas for transaction\n" +
-              "- debug_getRawBlock: Get raw block data"
+            'Select the Monad RPC method to execute. Available methods and their required parameters:\n' +
+              '- getBalance: Get MON balance for any address\n' +
+              '- getBlock: Get block information by number\n' +
+              '- getBlockNumber: Get latest block number\n' +
+              '- getTransaction: Get detailed transaction information\n' +
+              '- getTransactionReceipt: Get transaction receipt with status and gas usage\n' +
+              '- getCode: Get contract bytecode\n' +
+              '- getGasPrice: Get current gas price on Monad\n' +
+              '- getLogs: Get event logs with filtering\n' +
+              '- call: Execute contract read call\n' +
+              '- estimateGas: Estimate gas for transaction\n' +
+              '- debug_getRawBlock: Get raw block data',
           ),
 
         params: z
@@ -1076,7 +1078,7 @@ export const mcpHandler = initializeMcpApiHandler(
               .string()
               .optional()
               .describe(
-                'Monad block number in hex (e.g., "0x1"), or tag: "latest". Used in: getBalance, getBlock, getCode, call'
+                'Monad block number in hex (e.g., "0x1"), or tag: "latest". Used in: getBalance, getBlock, getCode, call',
               ),
 
             // Address related
@@ -1084,7 +1086,7 @@ export const mcpHandler = initializeMcpApiHandler(
               .string()
               .optional()
               .describe(
-                'Monad address (0x-prefixed, e.g., "0x760AfE86e5de5fa0Ee542fc7B7B713e1c5425701" for WMON). Used in: getBalance, getCode, call, estimateGas, getLogs'
+                'Monad address (0x-prefixed, e.g., "0x760AfE86e5de5fa0Ee542fc7B7B713e1c5425701" for WMON). Used in: getBalance, getCode, call, estimateGas, getLogs',
               ),
 
             // Transaction related
@@ -1092,7 +1094,7 @@ export const mcpHandler = initializeMcpApiHandler(
               .string()
               .optional()
               .describe(
-                "Monad transaction hash (0x-prefixed, 64 characters). Used in: getTransaction, getTransactionReceipt"
+                'Monad transaction hash (0x-prefixed, 64 characters). Used in: getTransaction, getTransactionReceipt',
               ),
 
             // Contract related
@@ -1100,7 +1102,7 @@ export const mcpHandler = initializeMcpApiHandler(
               .string()
               .optional()
               .describe(
-                "Contract call data hex string (e.g., function selector + encoded params). Used in: call, estimateGas"
+                'Contract call data hex string (e.g., function selector + encoded params). Used in: call, estimateGas',
               ),
 
             // Filter related
@@ -1108,21 +1110,21 @@ export const mcpHandler = initializeMcpApiHandler(
               .string()
               .optional()
               .describe(
-                "Start block number for event filtering on Monad. Used in: getLogs"
+                'Start block number for event filtering on Monad. Used in: getLogs',
               ),
 
             toBlock: z
               .string()
               .optional()
               .describe(
-                "End block number for event filtering on Monad. Used in: getLogs"
+                'End block number for event filtering on Monad. Used in: getLogs',
               ),
 
             topics: z
               .array(z.string())
               .optional()
               .describe(
-                "Array of event topics for filtering Monad events. Used in: getLogs"
+                'Array of event topics for filtering Monad events. Used in: getLogs',
               ),
 
             // Gas and value related
@@ -1130,19 +1132,19 @@ export const mcpHandler = initializeMcpApiHandler(
               .string()
               .optional()
               .describe(
-                "Gas limit in hex (Monad has different gas costs than Ethereum). Used in: estimateGas"
+                'Gas limit in hex (Monad has different gas costs than Ethereum). Used in: estimateGas',
               ),
 
             value: z
               .string()
               .optional()
               .describe(
-                "Value in MON wei to send with transaction. Used in: estimateGas, call"
+                'Value in MON wei to send with transaction. Used in: estimateGas, call',
               ),
           })
-          .describe("Parameters for the selected Monad RPC method"),
+          .describe('Parameters for the selected Monad RPC method'),
       },
-      async ({ method, params }) => {
+      withTelemetry('monad-rpc', async ({ method, params }) => {
         try {
           // Define required parameters and their custom descriptions for each method
           const methodRequirements: Record<
@@ -1151,184 +1153,185 @@ export const mcpHandler = initializeMcpApiHandler(
           > = {
             getBalance: [
               {
-                param: "address",
+                param: 'address',
                 required: true,
-                description: "Monad address to check MON balance for",
+                description: 'Monad address to check MON balance for',
               },
               {
-                param: "blockNumber",
+                param: 'blockNumber',
                 required: false,
-                description: "Monad block number or tag to check balance at",
+                description: 'Monad block number or tag to check balance at',
               },
             ],
             getBlock: [
               {
-                param: "blockNumber",
+                param: 'blockNumber',
                 required: true,
-                description: "Monad block number or tag to retrieve",
+                description: 'Monad block number or tag to retrieve',
               },
             ],
             getBlockNumber: [],
             getTransaction: [
               {
-                param: "txHash",
+                param: 'txHash',
                 required: true,
-                description: "Monad transaction hash to retrieve",
+                description: 'Monad transaction hash to retrieve',
               },
             ],
             getTransactionReceipt: [
               {
-                param: "txHash",
+                param: 'txHash',
                 required: true,
-                description: "Monad transaction hash to get receipt for",
+                description: 'Monad transaction hash to get receipt for',
               },
             ],
             getCode: [
               {
-                param: "address",
+                param: 'address',
                 required: true,
-                description: "Monad contract address to get bytecode from",
+                description: 'Monad contract address to get bytecode from',
               },
               {
-                param: "blockNumber",
+                param: 'blockNumber',
                 required: false,
-                description: "Block number or tag to get code at",
+                description: 'Block number or tag to get code at',
               },
             ],
             getGasPrice: [],
             getLogs: [
               {
-                param: "fromBlock",
+                param: 'fromBlock',
                 required: false,
-                description: "Start block for Monad event filtering",
+                description: 'Start block for Monad event filtering',
               },
               {
-                param: "toBlock",
+                param: 'toBlock',
                 required: false,
-                description: "End block for Monad event filtering",
+                description: 'End block for Monad event filtering',
               },
               {
-                param: "address",
+                param: 'address',
                 required: false,
-                description: "Monad contract address to filter logs for",
+                description: 'Monad contract address to filter logs for',
               },
               {
-                param: "topics",
+                param: 'topics',
                 required: false,
-                description: "Event topics to filter by",
+                description: 'Event topics to filter by',
               },
             ],
             call: [
               {
-                param: "address",
+                param: 'address',
                 required: true,
-                description: "Monad contract address to call",
+                description: 'Monad contract address to call',
               },
               {
-                param: "data",
+                param: 'data',
                 required: true,
-                description: "Encoded function call data",
+                description: 'Encoded function call data',
               },
               {
-                param: "blockNumber",
+                param: 'blockNumber',
                 required: false,
-                description: "Block number or tag to execute call at",
+                description: 'Block number or tag to execute call at',
               },
             ],
             estimateGas: [
               {
-                param: "address",
+                param: 'address',
                 required: true,
-                description: "Monad contract address to estimate gas for",
+                description: 'Monad contract address to estimate gas for',
               },
               {
-                param: "data",
+                param: 'data',
                 required: true,
-                description: "Encoded function call data",
+                description: 'Encoded function call data',
               },
               {
-                param: "value",
+                param: 'value',
                 required: false,
-                description: "Value in MON wei to send with call",
+                description: 'Value in MON wei to send with call',
               },
               {
-                param: "gasLimit",
+                param: 'gasLimit',
                 required: false,
-                description: "Gas limit for estimation on Monad",
+                description: 'Gas limit for estimation on Monad',
               },
             ],
             debug_getRawBlock: [
               {
-                param: "blockNumber",
+                param: 'blockNumber',
                 required: true,
-                description: "Monad block number or tag to get raw data for",
+                description: 'Monad block number or tag to get raw data for',
               },
             ],
-          };
+          }
 
           // Validate required parameters
-          const requirements = methodRequirements[method];
+          const requirements = methodRequirements[method]
           const missingParams = requirements
             .filter(
-              (req) => req.required && !params[req.param as keyof typeof params]
+              (req) =>
+                req.required && !params[req.param as keyof typeof params],
             )
-            .map((req) => `${req.param} (${req.description})`);
+            .map((req) => `${req.param} (${req.description})`)
 
           if (missingParams.length > 0) {
             return {
               content: [
                 {
-                  type: "text",
+                  type: 'text',
                   text: `Missing required parameters for ${method}:\n${missingParams.join(
-                    "\n"
+                    '\n',
                   )}`,
                 },
               ],
-            };
+            }
           }
 
           // Execute the RPC call using the publicClient (configured for Monad)
-          let result;
+          let result
           switch (method) {
-            case "getBalance":
+            case 'getBalance':
               result = await publicClient.getBalance({
                 address: params.address as `0x${string}`,
                 blockNumber: params.blockNumber
                   ? BigInt(params.blockNumber)
                   : undefined,
-              });
-              break;
+              })
+              break
 
-            case "getTransaction":
+            case 'getTransaction':
               result = await publicClient.getTransaction({
                 hash: params.txHash as `0x${string}`,
-              });
-              break;
+              })
+              break
 
-            case "getBlock":
+            case 'getBlock':
               result = await publicClient.getBlock({
                 blockNumber:
-                  params.blockNumber && params.blockNumber !== "latest"
+                  params.blockNumber && params.blockNumber !== 'latest'
                     ? BigInt(params.blockNumber)
                     : undefined,
-              });
-              break;
+              })
+              break
 
-            case "getTransactionReceipt":
+            case 'getTransactionReceipt':
               result = await publicClient.getTransactionReceipt({
                 hash: params.txHash as `0x${string}`,
-              });
-              break;
+              })
+              break
 
-            case "getBlockNumber":
-              result = await publicClient.getBlockNumber();
-              break;
+            case 'getBlockNumber':
+              result = await publicClient.getBlockNumber()
+              break
 
-            case "getGasPrice":
-              result = await publicClient.getGasPrice();
-              break;
+            case 'getGasPrice':
+              result = await publicClient.getGasPrice()
+              break
 
-            case "getLogs":
+            case 'getLogs':
               result = await publicClient.getLogs({
                 fromBlock: params.fromBlock
                   ? BigInt(params.fromBlock)
@@ -1338,17 +1341,17 @@ export const mcpHandler = initializeMcpApiHandler(
                 events: params.topics
                   ? [params.topics as [`0x${string}`]]
                   : undefined,
-              });
-              break;
+              })
+              break
 
             default:
-              throw new Error(`Method ${method} not implemented`);
+              throw new Error(`Method ${method} not implemented`)
           }
 
           return {
             content: [
               {
-                type: "text",
+                type: 'text',
                 text: JSON.stringify(
                   {
                     method,
@@ -1356,53 +1359,52 @@ export const mcpHandler = initializeMcpApiHandler(
                     result,
                   },
                   (_, value) =>
-                    typeof value === "bigint" ? value.toString() : value,
-                  2
+                    typeof value === 'bigint' ? value.toString() : value,
+                  2,
                 ),
               },
             ],
-          };
+          }
         } catch (error) {
-          console.error(`Error executing ${method}:`, error);
           return {
             content: [
               {
-                type: "text",
+                type: 'text',
                 text: `Error executing ${method} on Monad: ${
                   error instanceof Error ? error.message : String(error)
                 }`,
               },
             ],
-          };
+          }
         }
-      }
-    );
+      }),
+    )
 
     function serializeValue(value: any): any {
       // Handle null and undefined
       if (value == null) {
-        return value;
+        return value
       }
 
       // Handle BigInt
-      if (typeof value === "bigint") {
-        return value.toString();
+      if (typeof value === 'bigint') {
+        return value.toString()
       }
 
       // Handle arrays
       if (Array.isArray(value)) {
-        return value.map(serializeValue);
+        return value.map(serializeValue)
       }
 
       // Handle objects (but not Date, RegExp, etc.)
-      if (typeof value === "object" && value.constructor === Object) {
+      if (typeof value === 'object' && value.constructor === Object) {
         return Object.fromEntries(
-          Object.entries(value).map(([k, v]) => [k, serializeValue(v)])
-        );
+          Object.entries(value).map(([k, v]) => [k, serializeValue(v)]),
+        )
       }
 
       // Handle other types (strings, numbers, booleans)
-      return value;
+      return value
     }
     async function readContract({
       address,
@@ -1410,10 +1412,10 @@ export const mcpHandler = initializeMcpApiHandler(
       functionName,
       args = [],
     }: {
-      address: `0x${string}`;
-      abi: any[]; // Received ABI
-      functionName: string;
-      args?: any[];
+      address: `0x${string}`
+      abi: any[] // Received ABI
+      functionName: string
+      args?: any[]
     }) {
       try {
         // Create contract instance with received ABI
@@ -1421,25 +1423,24 @@ export const mcpHandler = initializeMcpApiHandler(
           address,
           abi, // Parse the received ABI
           client: publicClient,
-        });
+        })
 
         // Dynamically call the function
 
-        const result = await contract.read[functionName](args);
-        const safeJsonString = JSON.stringify(serializeValue(result));
+        const result = await contract.read[functionName](args)
+        const safeJsonString = JSON.stringify(serializeValue(result))
 
         // Use it with logging
 
         return {
           success: true,
           data: safeJsonString,
-        };
+        }
       } catch (error) {
-        console.error(`Error reading contract: ${error}`);
         return {
           success: false,
           error: error instanceof Error ? error.message : String(error),
-        };
+        }
       }
     }
   },
@@ -1447,14 +1448,14 @@ export const mcpHandler = initializeMcpApiHandler(
     capabilities: {
       tools: {
         echo: {
-          description: "Echo a message",
+          description: 'Echo a message',
         },
         resources: {
           monadDocs: {
-            description: "Read the Monad LLMs full text",
+            description: 'Read the Monad LLMs full text',
           },
         },
       },
     },
-  }
-);
+  },
+)
