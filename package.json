@@ -11,11 +11,21 @@
 	"dependencies": {
 		"@modelcontextprotocol/sdk": "^1.8.0",
 		"@openchainxyz/abi-guesser": "^1.0.2",
+		"@radix-ui/react-dialog": "^1.1.14",
+		"@radix-ui/react-slot": "^1.2.3",
 		"@shazow/whatsabi": "^0.21.0",
+		"@tailwindcss/postcss": "^4.1.10",
+		"class-variance-authority": "^0.7.1",
+		"clsx": "^2.1.1",
 		"ethers": "^6.13.5",
+		"lucide-react": "^0.515.0",
 		"mixpanel": "^0.18.1",
+		"motion": "^12.18.1",
 		"next": "15.2.4",
+		"postcss": "^8.5.5",
 		"redis": "^4.7.0",
+		"tailwind-merge": "^3.3.1",
+		"tailwindcss": "^4.1.10",
 		"viem": "^2.26.2",
 		"zod": "^3.24.2"
 	},
@@ -23,6 +33,7 @@
 		"@biomejs/biome": "1.9.4",
 		"@types/node": "^20",
 		"@types/react": "^19",
+		"tw-animate-css": "^1.3.4",
 		"typescript": "^5"
 	},
 	"packageManager": "pnpm@8.15.7+sha512.c85cd21b6da10332156b1ca2aa79c0a61ee7ad2eb0453b88ab299289e9e8ca93e6091232b25c07cbf61f6df77128d9c849e5c9ac6e44854dbd211c49f3a67adc"
