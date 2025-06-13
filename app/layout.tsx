@@ -31,10 +31,7 @@ export const metadata: Metadata = {
     title: 'Monad Developer MCP',
     description: 'AI-powered development tools for Monad blockchain developers',
   },
-  icons: {
-    icon: '/favicon.ico',
-  },
-  manifest: '/manifest.json',
+  manifest: '/site.webmanifest',
 }
 
 export default function RootLayout({
