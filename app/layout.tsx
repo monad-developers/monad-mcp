@@ -22,11 +22,6 @@ export const metadata: Metadata = {
     type: 'website',
     url: 'https://monad-mcp-tau.vercel.app',
     siteName: 'Monad Developer MCP',
-    images: [
-      {
-        url: 'https://mcp.Monad.com/og-image.png',
-      },
-    ],
   },
   twitter: {
     card: 'summary_large_image',
