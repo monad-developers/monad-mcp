@@ -1,4 +1,6 @@
+import { Background } from '@/components/background'
 import type { Metadata } from 'next'
+
 import './globals.css'
 
 export const metadata: Metadata = {
@@ -40,9 +42,9 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en">
-      <body className="bg-[#0E100F] font-sans transition-colors duration-200">
-        {children}
+    <html lang="en" className="bg-black">
+      <body className="bg-black">
+        <Background>{children}</Background>
       </body>
     </html>
   )

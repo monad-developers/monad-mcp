@@ -1,48 +1,46 @@
-'use client'
+"use client"
+
+import { useState } from "react"
+import { Check, Copy } from "lucide-react"
 
 const mcpConfig = {
   mcpServers: {
     MonadMcp: {
-      url: 'https://monad-mcp-tau.vercel.app/sse',
+      url: "https://monad-mcp-tau.vercel.app/sse",
     },
   },
 }
 
 export function SetupSection() {
+  const [copied, setCopied] = useState(false)
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(JSON.stringify(mcpConfig, null, 2))
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
   return (
     <div>
-      <h3 className="text-xl font-semibold mb-3 text-gray-700 dark:text-gray-200">
-        1. Configure MCP Settings
+      <h3 className="text-xl font-semibold mb-4 text-white flex items-center gap-2">
+        <span className="flex items-center justify-center w-8 h-8 rounded-full bg-monad-900/30 text-monad-400">1</span>
+        Configure MCP Settings
       </h3>
-      <p className="text-gray-600 dark:text-gray-300 mb-4">
-        Add the following configuration to your project's{' '}
-        <code className="bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded text-[#FBFAF9] dark:text-[#FBFAF9]">
-          .cursor/mcp.json
-        </code>{' '}
-        file:
+      <p className="text-gray-300 mb-4">
+        Add the following configuration to your project's{" "}
+        <code className="bg-gray-700/60 px-2 py-1 rounded text-monad-300">.cursor/mcp.json</code> file:
       </p>
       <div className="relative">
-        <pre className="bg-gray-900 text-[#FBFAF9] p-4 rounded-lg overflow-x-auto">
+        <pre className="bg-gray-900 border border-gray-700 text-monad-300 p-4 rounded-lg overflow-x-auto">
           <code>{JSON.stringify(mcpConfig, null, 2)}</code>
         </pre>
         <button
-          className="absolute top-2 right-2 bg-gray-700 hover:bg-gray-600 text-white p-2 rounded cursor-pointer"
+          className="absolute right-3 top-3 bg-gray-800 hover:bg-gray-700 text-gray-300 p-2 rounded transition-colors"
           type="button"
-          onClick={() => {
-            navigator.clipboard.writeText(JSON.stringify(mcpConfig, null, 2))
-          }}
+          onClick={handleCopy}
+          aria-label="Copy to clipboard"
         >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            className="h-5 w-5"
-            viewBox="0 0 20 20"
-            fill="currentColor"
-            aria-label="Copy to clipboard"
-            role="img"
-          >
-            <path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" />
-            <path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z" />
-          </svg>
+          {copied ? <Check size={16} className="text-green-400" /> : <Copy size={16} />}
         </button>
       </div>
     </div>
