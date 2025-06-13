@@ -20,7 +20,7 @@ export const metadata: Metadata = {
     description:
       'Access Monad blockchain development tools directly in your IDE with real-time documentation and program analysis capabilities.',
     type: 'website',
-    url: 'https://mcp.Monad.com/',
+    url: 'https://monad-mcp-tau.vercel.app',
     siteName: 'Monad Developer MCP',
     images: [
       {
