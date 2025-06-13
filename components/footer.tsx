@@ -1,6 +1,5 @@
 'use client'
 
-import { showCookiePreferences } from '@/components/cookie-consent-banner'
 import { FooterLink } from '@/components/footer-link'
 import { Button } from '@/components/ui/button'
 
@@ -137,9 +136,6 @@ export function Footer() {
                 </FooterLink>
                 <FooterLink href="https://monad.xyz/privacy-policy" external>
                   Privacy Policy
-                </FooterLink>
-                <FooterLink onClick={showCookiePreferences}>
-                  Cookie Preferences
                 </FooterLink>
               </div>
             </div>
