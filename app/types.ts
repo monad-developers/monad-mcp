@@ -1,119 +1,118 @@
-import { JsonFragmentType, TransactionDescription } from "ethers";
+import type { JsonFragmentType, TransactionDescription } from 'ethers'
 
 export interface SelectedOption {
-  label: string;
-  value: number | string | boolean;
+  label: string
+  value: number | string | boolean
 }
 
 // export type SelectedOptionState = SingleValue<SelectedOption>;
 
 export interface ExplorersData {
-  [label: string]: ExplorerData;
+  [label: string]: ExplorerData
 }
 
 export interface ExplorerData {
-  urlLayout: string;
-  chainIdToLabel: { [chainId: number]: string };
+  urlLayout: string
+  chainIdToLabel: { [chainId: number]: string }
   // some explorer favicons don't automatically work via gstatic
-  faviconUrl?: string;
+  faviconUrl?: string
   // some icons can be entirely white in color, which would require the background color to change from white
-  faviconWhite?: boolean;
-  forContracts?: boolean;
+  faviconWhite?: boolean
+  forContracts?: boolean
 }
 
 export enum ExplorerType {
-  ADDRESS,
-  TX,
+  ADDRESS = 0,
+  TX = 1,
 }
 
 export interface ILeaderboard {
-  _id: string;
-  lastBlockNumber: number;
-  totalUSDAmount: number;
-  donorsCount: number;
-  topDonorsWithEns: { address: string; ens: string; usdAmount: number }[];
+  _id: string
+  lastBlockNumber: number
+  totalUSDAmount: number
+  donorsCount: number
+  topDonorsWithEns: { address: string; ens: string; usdAmount: number }[]
 }
 
 export type DecodeBytesParamResult = {
-  decoded: DecodeRecursiveResult;
-};
+  decoded: DecodeRecursiveResult
+}
 
 export type DecodeTupleParamResult =
   | {
-      name: string;
-      baseType: string;
-      type: string;
-      rawValue: any;
-      value: DecodeParamTypesResult;
+      name: string
+      baseType: string
+      type: string
+      rawValue: any
+      value: DecodeParamTypesResult
     }[]
-  | null;
+  | null
 
-export type DecodeArrayParamResult =
-  | {
-      name: string;
-      baseType: string;
-      type: string;
-      rawValue: any;
-      value: DecodeParamTypesResult;
-    }[];
+export type DecodeArrayParamResult = {
+  name: string
+  baseType: string
+  type: string
+  rawValue: any
+  value: DecodeParamTypesResult
+}[]
 
 export interface ParsedTransaction extends TransactionDescription {
-  txType?: "safeMultiSend";
+  txType?: 'safeMultiSend'
 }
 
 export type DecodeParamTypesResult =
   | string
   | DecodeBytesParamResult
   | DecodeTupleParamResult
-  | DecodeArrayParamResult;
+  | DecodeArrayParamResult
 
 export type Arg = {
-  name: string;
-  baseType: string;
-  type: string;
-  rawValue: any;
-  value: DecodeParamTypesResult;
-};
+  name: string
+  baseType: string
+  type: string
+  rawValue: any
+  value: DecodeParamTypesResult
+}
 
 export type DecodeRecursiveResult = {
-  functionName: string;
-  signature: string;
-  rawArgs: any;
-  args: Arg[];
-} | null;
+  functionName: string
+  signature: string
+  rawArgs: any
+  args: Arg[]
+} | null
 
 export type HighlightedText = {
-  text: string;
-  isHighlighted: boolean;
-  isCurrentResult: boolean;
-};
+  text: string
+  isHighlighted: boolean
+  isCurrentResult: boolean
+}
 
-export type HighlightedContent = string | HighlightedText[];
+export type HighlightedContent = string | HighlightedText[]
 
 export interface ExtendedJsonFragmentType
-  extends Omit<JsonFragmentType, "name"> {
-  name?: HighlightedContent;
+  extends Omit<JsonFragmentType, 'name'> {
+  name?: HighlightedContent
 }
 
 export interface SourceCode {
-  sources: Record<string, { content: string }>;
+  sources: Record<string, { content: string }>
 }
 
 export interface ContractResult {
-  SourceCode: string;
-  ContractName: string;
-  ABI: string;
-  Implementation: string;
+  SourceCode: string
+  ContractName: string
+  ABI: string
+  Implementation: string
 }
 
 export interface ContractResponse {
-  status: string;
-  message: string;
-  result: ContractResult[];
+  status: string
+  message: string
+  result: ContractResult[]
 }
 
 export interface EVMParameter {
-  type: string;
-  name?: string;
-  components?: EVMParameter[];
+  type: string
+  name?: string
+  components?: EVMParameter[]
 }

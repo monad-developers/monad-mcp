@@ -1,13 +1,12 @@
 @import "tailwindcss";
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
 
 @import "tw-animate-css";
 
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-
   --radius-sm: calc(var(--radius) - 4px);
 
   --radius-md: calc(var(--radius) - 2px);
@@ -80,7 +79,6 @@
 }
 
 :root {
-
   --radius: 0.625rem;
 
   --background: oklch(1 0 0);
@@ -147,7 +145,6 @@
 }
 
 .dark {
-
   --background: oklch(0.145 0 0);
 
   --foreground: oklch(0.985 0 0);
@@ -221,15 +218,15 @@
 }
 
 @theme {
-  --color-monad-50: #F3F3FF;
-  --color-monad-100: #EAE9FE;
-  --color-monad-200: #D7D5FF;
-  --color-monad-300: #B8B4FE;
-  --color-monad-400: #9489FC;
-  --color-monad-500: #836EF9;
-  --color-monad-600: #6E54FF;
-  --color-monad-700: #5026DB;
-  --color-monad-800: #431FB8;
-  --color-monad-900: #391B97;
-  --color-monad-950: #210F66;
+  --color-monad-50: #f3f3ff;
+  --color-monad-100: #eae9fe;
+  --color-monad-200: #d7d5ff;
+  --color-monad-300: #b8b4fe;
+  --color-monad-400: #9489fc;
+  --color-monad-500: #836ef9;
+  --color-monad-600: #6e54ff;
+  --color-monad-700: #5026db;
+  --color-monad-800: #431fb8;
+  --color-monad-900: #391b97;
+  --color-monad-950: #210f66;
 }
