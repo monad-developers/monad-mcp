@@ -26,7 +26,7 @@ import { startHexWith0x } from './commons/utils'
 import { 
   protocolDb, 
   formatProtocolList,
-} from './protocols'
+} from '../lib/protocols'
 
 export const mcpHandler = initializeMcpApiHandler(
   (server) => {
