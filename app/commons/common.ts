@@ -72,22 +72,22 @@ import {
   zkSyncSepoliaTestnet,
   zora,
   zoraTestnet,
-  Chain,
-} from "viem/chains";
-import { _chains } from "./_chains";
+  type Chain,
+} from 'viem/chains'
+import { _chains } from './_chains'
 
-export const CHAINLABEL_KEY = "$SK_CHAINLABEL";
-export const ADDRESS_KEY = "$SK_ADDRESS";
-export const TX_KEY = "$SK_TX";
+export const CHAINLABEL_KEY = '$SK_CHAINLABEL'
+export const ADDRESS_KEY = '$SK_ADDRESS'
+export const TX_KEY = '$SK_TX'
 
 export const c: { [name: string]: Chain } = {
   mainnet: {
     ...mainnet,
-    rpcUrls: { default: { http: ["https://rpc.ankr.com/eth"] } }, // add custom rpcs. cloudflare doesn't support publicClient.getTransaction
+    rpcUrls: { default: { http: ['https://rpc.ankr.com/eth'] } }, // add custom rpcs. cloudflare doesn't support publicClient.getTransaction
   },
   sepolia: {
     ...sepolia,
-    rpcUrls: { default: { http: ["https://sepolia.gateway.tenderly.co"] } }, // add custom rpcs. cloudflare doesn't support publicClient.getTransaction
+    rpcUrls: { default: { http: ['https://sepolia.gateway.tenderly.co'] } }, // add custom rpcs. cloudflare doesn't support publicClient.getTransaction
   },
   arbitrum,
   arbitrumGoerli,
@@ -157,7 +157,7 @@ export const c: { [name: string]: Chain } = {
   zkSyncSepoliaTestnet,
   zora,
   zoraTestnet,
-};
+}
 
 // source: https://docs.etherscan.io/etherscan-v2/getting-started/supported-chains
 export const etherscanChains: { [name: string]: Chain } = {
@@ -214,46 +214,46 @@ export const etherscanChains: { [name: string]: Chain } = {
   zkSyncSepoliaTestnet,
   // xai,
   // xaiTestnet,
-};
+}
 
 // TODO: these should be placed in provider and memoized
 export const chainIdToChain = (() => {
-  let res: {
-    [chainId: number]: Chain;
-  } = {};
+  const res: {
+    [chainId: number]: Chain
+  } = {}
 
   Object.values(c).map((chain) => {
-    res[chain.id] = chain;
-  });
+    res[chain.id] = chain
+  })
 
-  return res;
-})();
+  return res
+})()
 
 // TODO: these should be placed in provider and memoized
 export const erc3770ShortNameToChain = (() => {
-  let res: {
-    [shortName: string]: Chain;
-  } = {};
+  const res: {
+    [shortName: string]: Chain
+  } = {}
 
   Object.entries(c).forEach(([key, chain]) => {
     const chainInfo = _chains.find(
-      (c: { chainId: number; shortName: string }) => c.chainId === chain.id
-    );
+      (c: { chainId: number; shortName: string }) => c.chainId === chain.id,
+    )
 
     if (chainInfo) {
-      res[chainInfo.shortName] = chain;
+      res[chainInfo.shortName] = chain
     }
-  });
+  })
 
-  return res;
-})();
+  return res
+})()
 
 // TODO: these should be placed in provider and memoized
 export const chainIdToImage = (() => {
-  const basePath = "/chainIcons";
+  const basePath = '/chainIcons'
 
-  let res: {
-    [chainId: number]: string;
+  const res: {
+    [chainId: number]: string
   } = {
     [arbitrum.id]: `${basePath}/arbitrum.svg`,
     [avalanche.id]: `${basePath}/avalanche.svg`,
@@ -266,24 +266,23 @@ export const chainIdToImage = (() => {
     [polygon.id]: `${basePath}/polygon.svg`,
     [sepolia.id]: `${basePath}/ethereum.svg`,
     [zora.id]: `${basePath}/zora.svg`,
-  };
+  }
 
   Object.keys(chainIdToChain).map((_chainId) => {
-    const chainId = Number(_chainId);
+    const chainId = Number(_chainId)
 
     if (!res[chainId]) {
-      res[
-        chainId
-      ] = `https://t2.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&size=128&url=${chainIdToChain[chainId].blockExplorers?.default.url}`;
+      res[chainId] =
+        `https://t2.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&size=128&url=${chainIdToChain[chainId].blockExplorers?.default.url}`
     }
-  });
+  })
 
-  return res;
-})();
+  return res
+})()
 
 export const networkOptions: { label: string; value: number }[] = Object.keys(
-  c
+  c,
 ).map((k, i) => ({
   label: c[k].name,
   value: c[k].id,
-}));
+}))

@@ -23,10 +23,7 @@ import { fetchFunctionInterface } from './commons/decoder'
 
 import { ERC20_ABI, monadTestnet } from './commons/constants'
 import { startHexWith0x } from './commons/utils'
-import { 
-  protocolDb, 
-  formatProtocolList,
-} from '../lib/protocols'
+import { protocolDb, formatProtocolList } from '../lib/protocols'
 
 export const mcpHandler = initializeMcpApiHandler(
   (server) => {
@@ -321,10 +318,10 @@ export const mcpHandler = initializeMcpApiHandler(
 
           const data = await response.json()
           if (data.result && 'creationByteCode' in data.result) {
-            delete data.result.creationByteCode
+            data.result.creationByteCode = undefined
           }
           if (data.result && 'sourceCode' in data.result) {
-            delete data.result.sourceCode
+            data.result.sourceCode = undefined
           }
           return {
             content: [
@@ -1392,52 +1389,69 @@ export const mcpHandler = initializeMcpApiHandler(
       'search-protocols',
       'Search for protocols on Monad by category, subcategory, name, or contract type or address',
       {
-        category: z.string().optional().describe('Protocol category (e.g., DeFi, Gaming, AI)'),
-        subcategory: z.string().optional().describe('Protocol subcategory (e.g., DEX, Lending)'),
+        category: z
+          .string()
+          .optional()
+          .describe('Protocol category (e.g., DeFi, Gaming, AI)'),
+        subcategory: z
+          .string()
+          .optional()
+          .describe('Protocol subcategory (e.g., DEX, Lending)'),
         name: z.string().optional().describe('Protocol name'),
-        contract: z.string().optional().describe('Contract type/name/address')
+        contract: z.string().optional().describe('Contract type/name/address'),
       },
-      withTelemetry('search-protocols', async ({ category, subcategory, name, contract }) => {
-        try {
-          await protocolDb.loadData()
-          const results = await protocolDb.search({ category, subcategory, name, contract })
-          
-          return {
-            content: [
-              {
-                type: 'text',
-                text: formatProtocolList(results),
-              },
-            ],
-          }
-        } catch (error) {
-          return {
-            content: [
-              {
-                type: 'text',
-                text: `Failed to search protocols: ${
-                  error instanceof Error ? error.message : String(error)
-                }`,
-              },
-            ],
-          }
-        }
-      }),
-    )
+      withTelemetry(
+        'search-protocols',
+        async ({ category, subcategory, name, contract }) => {
+          try {
+            await protocolDb.loadData()
+            const results = await protocolDb.search({
+              category,
+              subcategory,
+              name,
+              contract,
+            })
 
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: formatProtocolList(results),
+                },
+              ],
+            }
+          } catch (error) {
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: `Failed to search protocols: ${
+                    error instanceof Error ? error.message : String(error)
+                  }`,
+                },
+              ],
+            }
+          }
+        },
+      ),
+    )
 
     // @ts-expect-error - TODO: infer type of callback instead of ignoring error
     server.tool(
       'discover-protocols',
       'Natural language protocol discovery on Monad (e.g., "Show me all DEXs on Monad")',
       {
-        query: z.string().describe('Natural language query (e.g., "Show me all DEX protocols")'),
+        query: z
+          .string()
+          .describe(
+            'Natural language query (e.g., "Show me all DEX protocols")',
+          ),
       },
       withTelemetry('discover-protocols', async ({ query }) => {
         try {
           await protocolDb.loadData()
           const results = await protocolDb.discoverByQuery(query)
-          
+
           return {
             content: [
               {
@@ -1460,7 +1474,6 @@ export const mcpHandler = initializeMcpApiHandler(
         }
       }),
     )
-
 
     function serializeValue(value: any): any {
       // Handle null and undefined

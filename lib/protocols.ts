@@ -46,7 +46,10 @@ class ProtocolDatabase {
       const lastUpdate = await this.redis.get(this.LAST_UPDATE_KEY)
       const now = Date.now()
 
-      if (lastUpdate && now - Number.parseInt(lastUpdate) < this.CACHE_TTL * 1000) {
+      if (
+        lastUpdate &&
+        now - Number.parseInt(lastUpdate) < this.CACHE_TTL * 1000
+      ) {
         // Cache is still valid, no need to reload
         return
       }

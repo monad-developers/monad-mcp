@@ -1,11 +1,11 @@
-import { EventEmitter } from "node:events";
+import { EventEmitter } from 'node:events'
 
-import type { ServerResponse } from "node:http";
+import type { ServerResponse } from 'node:http'
 
 type WriteheadArgs = {
-  statusCode: number;
-  headers?: Record<string, string>;
-};
+  statusCode: number
+  headers?: Record<string, string>
+}
 
 /**
  * Anthropic's MCP API requires a server response object. This function
@@ -13,111 +13,111 @@ type WriteheadArgs = {
  */
 export function createServerResponseAdapter(
   signal: AbortSignal,
-  fn: (re: ServerResponse) => Promise<void> | void
+  fn: (re: ServerResponse) => Promise<void> | void,
 ): Promise<Response> {
-  let writeHeadResolver: (v: WriteheadArgs) => void;
+  let writeHeadResolver: (v: WriteheadArgs) => void
   const writeHeadPromise = new Promise<WriteheadArgs>(
     async (resolve, reject) => {
-      writeHeadResolver = resolve;
-    }
-  );
+      writeHeadResolver = resolve
+    },
+  )
 
   return new Promise(async (resolve, reject) => {
-    let controller: ReadableStreamController<Uint8Array> | undefined;
-    let shouldClose = false;
-    let wroteHead = false;
+    let controller: ReadableStreamController<Uint8Array> | undefined
+    let shouldClose = false
+    let wroteHead = false
 
     const writeHead = (
       statusCode: number,
-      headers?: Record<string, string>
+      headers?: Record<string, string>,
     ) => {
-      if (typeof headers === "string") {
-        throw new Error("Status message of writeHead not supported");
+      if (typeof headers === 'string') {
+        throw new Error('Status message of writeHead not supported')
       }
-      wroteHead = true;
+      wroteHead = true
       writeHeadResolver({
         statusCode,
         headers,
-      });
-      return fakeServerResponse;
-    };
+      })
+      return fakeServerResponse
+    }
 
-    const bufferedData: Uint8Array[] = [];
+    const bufferedData: Uint8Array[] = []
 
     const write = (
       chunk: Buffer | string,
-      encoding?: BufferEncoding
+      encoding?: BufferEncoding,
     ): boolean => {
       if (encoding) {
-        throw new Error("Encoding not supported");
+        throw new Error('Encoding not supported')
       }
       if (chunk instanceof Buffer) {
-        throw new Error("Buffer not supported");
+        throw new Error('Buffer not supported')
       }
       if (!wroteHead) {
-        writeHead(200);
+        writeHead(200)
       }
       if (!controller) {
-        bufferedData.push(new TextEncoder().encode(chunk as string));
-        return true;
+        bufferedData.push(new TextEncoder().encode(chunk as string))
+        return true
       }
-      controller.enqueue(new TextEncoder().encode(chunk as string));
-      return true;
-    };
+      controller.enqueue(new TextEncoder().encode(chunk as string))
+      return true
+    }
 
-    const eventEmitter = new EventEmitter();
+    const eventEmitter = new EventEmitter()
 
     const fakeServerResponse = {
       writeHead,
       write,
       end: (data?: Buffer | string) => {
         if (data) {
-          write(data);
+          write(data)
         }
 
         if (!controller) {
-          shouldClose = true;
-          return fakeServerResponse;
+          shouldClose = true
+          return fakeServerResponse
         }
         try {
-          controller.close();
+          controller.close()
         } catch {
           /* May be closed on tcp layer */
         }
-        return fakeServerResponse;
+        return fakeServerResponse
       },
       on: (event: string, listener: (...args: any[]) => void) => {
-        eventEmitter.on(event, listener);
-        return fakeServerResponse;
+        eventEmitter.on(event, listener)
+        return fakeServerResponse
       },
-    };
+    }
 
-    signal.addEventListener("abort", () => {
-      eventEmitter.emit("close");
-    });
+    signal.addEventListener('abort', () => {
+      eventEmitter.emit('close')
+    })
 
-    fn(fakeServerResponse as ServerResponse);
+    fn(fakeServerResponse as ServerResponse)
 
-    const head = await writeHeadPromise;
+    const head = await writeHeadPromise
 
     const response = new Response(
       new ReadableStream({
         start(c) {
-          controller = c;
+          controller = c
           for (const chunk of bufferedData) {
-            controller.enqueue(chunk);
+            controller.enqueue(chunk)
           }
           if (shouldClose) {
-            controller.close();
+            controller.close()
           }
         },
       }),
       {
         status: head.statusCode,
         headers: head.headers,
-      }
-    );
+      },
+    )
 
-    resolve(response);
-  });
+    resolve(response)
+  })
 }
