@@ -25,7 +25,6 @@ import { ERC20_ABI, monadTestnet } from './commons/constants'
 import { startHexWith0x } from './commons/utils'
 import { 
   protocolDb, 
-
   formatProtocolList,
 } from './protocols'
 
@@ -1401,7 +1400,7 @@ export const mcpHandler = initializeMcpApiHandler(
       withTelemetry('search-protocols', async ({ category, subcategory, name, contract }) => {
         try {
           await protocolDb.loadData()
-          const results = protocolDb.search({ category, subcategory, name, contract })
+          const results = await protocolDb.search({ category, subcategory, name, contract })
           
           return {
             content: [
@@ -1437,14 +1436,13 @@ export const mcpHandler = initializeMcpApiHandler(
       withTelemetry('discover-protocols', async ({ query }) => {
         try {
           await protocolDb.loadData()
-          const results = protocolDb.discoverByQuery(query)
+          const results = await protocolDb.discoverByQuery(query)
           
           return {
             content: [
               {
                 type: 'text',
-                text: `Found ${results.length} protocols for "${query}":\n\n` +
-                  formatProtocolList(results, 15),
+                text: `Found ${results.length} protocols for "${query}":\n\n${formatProtocolList(results, 15)}`,
               },
             ],
           }
