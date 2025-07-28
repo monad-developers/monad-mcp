@@ -115,7 +115,7 @@ export function Footer() {
             <div className="col-span-1 flex flex-col gap-4">
               <h3 className="font-semibold text-white">Socials</h3>
               <div className="flex flex-col gap-2">
-                <FooterLink href="https://x.com/monad_xyz" external>
+                <FooterLink href="https://x.com/monad" external>
                   X (fka Twitter)
                 </FooterLink>
                 <FooterLink href="https://discord.gg/monad" external>
