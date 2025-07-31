@@ -23,6 +23,7 @@ import {
   type EVMParameter,
 } from '../types'
 import { formatEther, formatUnits } from 'viem'
+import { withCache } from './cache'
 
 export const getPath = (subdomain: string) => {
   if (subdomain.length === 0) {
@@ -650,3 +651,15 @@ export function serializeValue(value: any): any {
   // Handle other types (strings, numbers, booleans)
   return value
 }
+
+export const fetchContractAbiRawCached = withCache(
+  fetchContractAbiRaw,
+  ({ address, chainId }) => `contract_abi:${chainId}:${address}`,
+  600 // 10 minutes
+)
+
+export const getSourceCodeCached = withCache(
+  getSourceCode,
+  (chainId, address) => `source_code:${chainId}:${address}`,
+  3600 // 1 hour
+)
