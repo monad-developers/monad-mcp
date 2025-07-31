@@ -50268,7 +50268,7 @@ export const _chains = [
       decimals: 18,
     },
     infoURL: "https://calypsohub.network/",
-    shortName: "deprected-calypso-testnet",
+    shortName: "deprecated-calypso-testnet",
     chainId: 344106930,
     networkId: 344106930,
     slip44: 1,
