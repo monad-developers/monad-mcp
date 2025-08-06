@@ -138,12 +138,10 @@ class ProtocolDatabase {
         return false
       if (
         contract &&
-        !protocol.contract.toLowerCase().includes(contract.toLowerCase())
-      )
-        return false
-      if (
-        contract &&
-        !protocol.address.toLowerCase().includes(contract.toLowerCase())
+        !(
+          protocol.contract.toLowerCase().includes(contract.toLowerCase()) ||
+          protocol.address.toLowerCase().includes(contract.toLowerCase())
+        )
       )
         return false
       return true
