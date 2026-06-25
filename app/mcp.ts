@@ -16,6 +16,7 @@ import {
   stringToHex,
   keccak256 as toKeccak256,
 } from 'viem'
+import { BaseError } from 'viem'
 import { z } from 'zod'
 import { initializeMcpApiHandler } from '../lib/mcp-api-handler'
 import { createTelemetryFunctions, initializeTelemetry } from '../lib/telemetry'
@@ -31,6 +32,13 @@ export const mcpHandler = initializeMcpApiHandler(
       chain: monadTestnet,
       transport: http(),
     })
+
+    const formatError = (error: unknown) =>
+      error instanceof BaseError
+        ? error.shortMessage
+        : error instanceof Error
+          ? error.message
+          : String(error)
 
     // Initialize telemetry
     const telemetryConfig = initializeTelemetry()
@@ -64,9 +72,7 @@ export const mcpHandler = initializeMcpApiHandler(
             content: [
               {
                 type: 'text',
-                text: `Failed to retrieve balance for address: ${address}. Error: ${
-                  error instanceof Error ? error.message : String(error)
-                }`,
+                text: `Failed to retrieve balance for address: ${address}. Error: ${formatError(error)}`,
               },
             ],
           }
@@ -111,9 +117,7 @@ export const mcpHandler = initializeMcpApiHandler(
             content: [
               {
                 type: 'text',
-                text: `Failed to retrieve transaction information for hash: ${txHash}. Error: ${
-                  error instanceof Error ? error.message : String(error)
-                }`,
+                text: `Failed to retrieve transaction information for hash: ${txHash}. Error: ${formatError(error)}`,
               },
             ],
           }
@@ -167,9 +171,7 @@ export const mcpHandler = initializeMcpApiHandler(
               content: [
                 {
                   type: 'text',
-                  text: `Failed to retrieve balance for address: ${walletAddress}. Error: ${
-                    error instanceof Error ? error.message : String(error)
-                  }`,
+                  text: `Failed to retrieve balance for address: ${walletAddress}. Error: ${formatError(error)}`,
                 },
               ],
             }
@@ -225,9 +227,7 @@ export const mcpHandler = initializeMcpApiHandler(
             content: [
               {
                 type: 'text',
-                text: `Failed to retrieve block information. Please provide either 'latest' or a valid block number. Error: ${
-                  error instanceof Error ? error.message : String(error)
-                }`,
+                text: `Failed to retrieve block information. Please provide either 'latest' or a valid block number. Error: ${formatError(error)}`,
               },
             ],
           }
@@ -283,9 +283,7 @@ export const mcpHandler = initializeMcpApiHandler(
             content: [
               {
                 type: 'text',
-                text: `Failed to retrieve transaction receipt. Error: ${
-                  error instanceof Error ? error.message : String(error)
-                }`,
+                text: `Failed to retrieve transaction receipt. Error: ${formatError(error)}`,
               },
             ],
           }
@@ -336,9 +334,7 @@ export const mcpHandler = initializeMcpApiHandler(
             content: [
               {
                 type: 'text',
-                text: `Failed to retrieve contract source for address: ${address}. Error: ${
-                  error instanceof Error ? error.message : String(error)
-                }`,
+                text: `Failed to retrieve contract source for address: ${address}. Error: ${formatError(error)}`,
               },
             ],
           }
@@ -370,9 +366,7 @@ export const mcpHandler = initializeMcpApiHandler(
             content: [
               {
                 type: 'text',
-                text: `Failed to estimate gas price. Error: ${
-                  error instanceof Error ? error.message : String(error)
-                }`,
+                text: `Failed to estimate gas price. Error: ${formatError(error)}`,
               },
             ],
           }
