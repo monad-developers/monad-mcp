@@ -9,7 +9,11 @@ import {
 } from 'viem'
 import { z } from 'zod'
 import { initializeMcpApiHandler } from '../lib/mcp-api-handler'
-import { convertOperations } from '../lib/convert'
+import {
+  MAX_CONVERSION_OPERATIONS,
+  MAX_CONVERSION_VALUE_LENGTH,
+  convertOperations,
+} from '../lib/convert'
 import { createTelemetryFunctions, initializeTelemetry } from '../lib/telemetry'
 import { fetchFunctionInterface } from './commons/decoder'
 
@@ -649,7 +653,7 @@ export const mcpHandler = initializeMcpApiHandler(
       'convert',
       'Convert between different data formats (hex, string, number, keccak256)',
       {
-        input: z.string().describe('Input value to convert'),
+        input: z.string().max(MAX_CONVERSION_VALUE_LENGTH).describe('Input value to convert'),
         operations: z
           .array(
             z.enum([
@@ -661,6 +665,7 @@ export const mcpHandler = initializeMcpApiHandler(
               'toBigInt',
             ]),
           )
+          .max(MAX_CONVERSION_OPERATIONS)
           .describe('Array of conversion operations to perform in sequence'),
       },
       withTelemetry('convert', async ({ input, operations }) => {

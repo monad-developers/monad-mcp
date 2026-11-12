@@ -29,6 +29,42 @@ try {
       operations.map((operation, i) => ({ operation, result: expected[i] })),
     )
   }
+  const amplified = await client.callTool({
+    name: 'convert',
+    arguments: { input: 'hello', operations: Array(26).fill('toHex') },
+  })
+  const amplifiedBody = JSON.parse(amplified.content[0].text)
+  assert.equal(
+    amplifiedBody.conversions.filter((value) => 'result' in value).length,
+    13,
+  )
+  assert.ok(
+    amplifiedBody.conversions
+      .slice(13)
+      .every((value) => value.error.includes('65536')),
+  )
+  for (const args of [
+    { input: 'x'.repeat(65537), operations: [] },
+    { input: 'x', operations: Array(65).fill('toString') },
+  ]) {
+    await assert.rejects(
+      client.callTool({ name: 'convert', arguments: args }),
+      (error) => error.code === -32602,
+    )
+  }
+  const recovered = await client.callTool({
+    name: 'convert',
+    arguments: { input: '100', operations: ['toHex', 'toNumber'] },
+  })
+  assert.deepEqual(
+    JSON.parse(recovered.content[0].text).conversions.map(
+      (value) => value.result,
+    ),
+    ['0x64', 100],
+  )
+  console.log(
+    'Amplification and oversized requests are bounded through SSE; a later normal request succeeds.',
+  )
   console.log(
     'Three conversion chains pass through the MCP SSE transport and Redis.',
   )

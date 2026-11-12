@@ -82,3 +82,54 @@ test('a failed first operation does not prevent later conversions', () => {
     { operation: 'toHex', result: stringToHex('hello') },
   ])
 })
+
+test('repeated hex encoding is bounded before allocating the next result', () => {
+  const results = convertOperations('hello', Array(15).fill('toHex'))
+  const values = results.filter((value) => 'result' in value)
+  assert.equal(values.at(-1).result.length, 57342)
+  assert.ok(values.every((value) => value.result.length <= 65536))
+  assert.ok(
+    results
+      .slice(values.length)
+      .every((value) => value.error.includes('65536')),
+  )
+})
+
+test('hex encoding checks UTF-8 bytes rather than UTF-16 code units', () => {
+  const results = convertOperations('😀'.repeat(8192), ['toHex', 'toKeccak256'])
+  assert.match(results[0].error, /65536/)
+  assert.equal(results[1].result, keccak256(stringToHex('😀'.repeat(8192))))
+})
+
+test('the value limit permits the boundary and preserves the last good value', () => {
+  const input = 'a'.repeat(32767)
+  const results = convertOperations(input, ['toHex', 'toHex', 'toString'])
+  assert.equal(results[0].result.length, 65536)
+  assert.match(results[1].error, /65536/)
+  assert.equal(results[2].result, input)
+})
+
+test('retained output is bounded across individually small results', () => {
+  const input = 'a'.repeat(16384)
+  const results = convertOperations(input, Array(64).fill('toString'))
+  assert.equal(results.filter((value) => 'result' in value).length, 16)
+  assert.ok(results.slice(16).every((value) => value.error.includes('262144')))
+})
+
+test('oversized input and chains are rejected, including empty chains', () => {
+  assert.throws(() => convertOperations('x'.repeat(65537), []), /input exceeds/)
+  assert.throws(
+    () => convertOperations('x', Array(65).fill('toString')),
+    /64-operation/,
+  )
+  assert.equal(
+    convertOperations('x'.repeat(65536), ['toString'])[0].result.length,
+    65536,
+  )
+  assert.equal(convertOperations('x', Array(64).fill('toString')).length, 64)
+})
+
+test('large finite numbers retain their existing conversions', () => {
+  const results = convertOperations('1e300', ['toHex', 'toBigInt'])
+  assert.equal(results[1].result, BigInt(1e300).toString())
+})
