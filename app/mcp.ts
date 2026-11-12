@@ -653,7 +653,10 @@ export const mcpHandler = initializeMcpApiHandler(
       'convert',
       'Convert between different data formats (hex, string, number, keccak256)',
       {
-        input: z.string().max(MAX_CONVERSION_VALUE_LENGTH).describe('Input value to convert'),
+        input: z
+          .string()
+          .max(MAX_CONVERSION_VALUE_LENGTH)
+          .describe('Input value to convert'),
         operations: z
           .array(
             z.enum([
