@@ -15,6 +15,7 @@ try {
       [stringToHex('hello'), keccak256(stringToHex('hello'))],
     ],
     ['0x3432', ['toString', 'toNumber', 'toHex'], ['42', 42, '0x2a']],
+    [`0x${'0'.repeat(65533)}1`, ['toBigInt', 'toHex'], ['1', '0x31']],
   ]
   for (const [input, operations, expected] of cases) {
     const result = await client.callTool({
@@ -66,7 +67,7 @@ try {
     'Amplification and oversized requests are bounded through SSE; a later normal request succeeds.',
   )
   console.log(
-    'Three conversion chains pass through the MCP SSE transport and Redis.',
+    'Four conversion chains pass through the MCP SSE transport and Redis.',
   )
 } finally {
   await client.close()

@@ -18,6 +18,32 @@ export const MAX_CONVERSION_OPERATIONS = 64
 export const MAX_CONVERSION_VALUE_LENGTH = 65_536
 export const MAX_CONVERSION_OUTPUT_LENGTH = 262_144
 
+// BigInt parsing is bounded by the input/value limit. Compare magnitudes before
+// allocating a decimal string so leading zeros do not consume the output budget.
+const MAX_DECIMAL_MAGNITUDE = BigInt(10) ** BigInt(MAX_CONVERSION_VALUE_LENGTH)
+
+function boundedBigIntString(value: bigint, outputLength: number) {
+  const negative = value < BigInt(0)
+  const magnitude = negative ? -value : value
+  const valueDigits = MAX_CONVERSION_VALUE_LENGTH - Number(negative)
+  const valueLimit = negative
+    ? MAX_DECIMAL_MAGNITUDE / BigInt(10)
+    : MAX_DECIMAL_MAGNITUDE
+  if (magnitude >= valueLimit) {
+    throw new Error('Conversion result exceeds the 65536-character limit.')
+  }
+  const remaining = MAX_CONVERSION_OUTPUT_LENGTH - outputLength
+  const outputDigits = remaining - Number(negative)
+  if (
+    outputDigits < 1 ||
+    (outputDigits < valueDigits &&
+      magnitude >= BigInt(10) ** BigInt(outputDigits))
+  ) {
+    throw new Error('Conversion output exceeds the 262144-character limit.')
+  }
+  return value.toString()
+}
+
 export function convertOperations(input: string, operations: string[]) {
   if (input.length > MAX_CONVERSION_VALUE_LENGTH) {
     throw new Error('Conversion input exceeds the 65536-character limit.')
@@ -48,6 +74,12 @@ export function convertOperations(input: string, operations: string[]) {
   const results = operations.map((operation: string) => {
     const result = ((): ConversionResult => {
       try {
+        if (operation === 'toBigInt') {
+          const value = isHex(currentValue)
+            ? hexToBigInt(currentValue)
+            : BigInt(currentValue)
+          return { operation, result: boundedBigIntString(value, outputLength) }
+        }
         // Reserve a conservative output bound before any conversion allocates.
         const length =
           typeof currentValue === 'string' ? currentValue.length : 310
@@ -59,8 +91,6 @@ export function convertOperations(input: string, operations: string[]) {
               : 258
         } else if (operation === 'toKeccak256' || operation === 'pad32') {
           bound = 66
-        } else if (operation === 'toBigInt') {
-          bound = 2 * length + 2
         } else if (operation === 'toNumber') {
           bound = 32
         }
@@ -119,15 +149,6 @@ export function convertOperations(input: string, operations: string[]) {
               return { operation, result: pad(currentValue) }
             }
             throw new Error('Can only pad hex values')
-
-          case 'toBigInt':
-            if (isHex(currentValue)) {
-              return {
-                operation,
-                result: hexToBigInt(currentValue).toString(),
-              }
-            }
-            return { operation, result: BigInt(currentValue).toString() }
 
           default:
             throw new Error(`Unknown operation: ${operation}`)

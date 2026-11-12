@@ -133,3 +133,45 @@ test('large finite numbers retain their existing conversions', () => {
   const results = convertOperations('1e300', ['toHex', 'toBigInt'])
   assert.equal(results[1].result, BigInt(1e300).toString())
 })
+
+test('leading-zero hexadecimal bigints use their actual decimal size', () => {
+  for (const length of [32768, 65536]) {
+    const input = `0x${'0'.repeat(length - 3)}1`
+    assert.deepEqual(convertOperations(input, ['toBigInt', 'toHex']), [
+      { operation: 'toBigInt', result: '1' },
+      { operation: 'toHex', result: '0x31' },
+    ])
+  }
+})
+
+test('bigint decimal output respects the exact value boundary', () => {
+  for (const length of [65536, 65537]) {
+    const decimal = '9'.repeat(length)
+    const input = `0x${BigInt(decimal).toString(16)}`
+    const [result] = convertOperations(input, ['toBigInt'])
+    if (length === 65536) assert.equal(result.result, decimal)
+    else assert.match(result.error, /65536/)
+  }
+})
+
+test('bigint decimal output respects the remaining aggregate budget', () => {
+  const decimal = '9'.repeat(65536)
+  const input = `0x${BigInt(decimal).toString(16)}`
+  const results = convertOperations(input, Array(5).fill('toBigInt'))
+  assert.equal(results.filter((r) => 'result' in r).length, 4)
+  assert.ok(results.slice(0, 4).every((r) => r.result === decimal))
+  assert.match(results[4].error, /262144/)
+})
+
+test('bigint sign and binary and octal prefixes retain their meaning', () => {
+  for (const value of [
+    '-123',
+    `0b${'0'.repeat(30000)}1`,
+    `0o${'0'.repeat(30000)}7`,
+  ]) {
+    const encoded = stringToHex(value)
+    // Decode first so long integer strings are not coerced to Number.
+    const results = convertOperations(encoded, ['toString', 'toBigInt'])
+    assert.equal(results[1].result, BigInt(value).toString())
+  }
+})
